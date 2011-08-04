@@ -33,26 +33,26 @@ enum SecondaryWeapons
 
 new const g_weapon_name_prim[PrimaryWeapons][] =
 {
-    "weapon_m4a1",
-    "weapon_ak47",
-    "weapon_sg552",
-    "weapon_aug",
-    "weapon_m3",
-    "weapon_mp5navy",
-    "weapon_m249",
-    "weapon_awp"
+	"weapon_m4a1",
+	"weapon_ak47",
+	"weapon_sg552",
+	"weapon_aug",
+	"weapon_m3",
+	"weapon_mp5navy",
+	"weapon_m249",
+	"weapon_awp"
 };
 
 new const g_weapon_ammo_prim[PrimaryWeapons][] =
 {
-    "556nato",
-    "762nato",
-    "556nato",
-    "556nato",
-    "buckshot",
-    "9mm",
-    "556natobox",
-    "338magnum"
+	"556nato",
+	"762nato",
+	"556nato",
+	"556nato",
+	"buckshot",
+	"9mm",
+	"556natobox",
+	"338magnum"
 };
 
 new const g_weapon_name_sec[SecondaryWeapons][] =
@@ -93,6 +93,10 @@ new bool:g_firstTeamJoin[32] = {true, ...}
 new g_players = 0;
 new g_maxPlayers = 0;
 
+//menus
+new g_menu_main;
+new g_menu_prim;
+
 public plugin_init()
 {
 	if(cstrike_running())
@@ -106,11 +110,30 @@ public plugin_init()
 		register_clcmd("say /respawn", "respawnPlayer", 0);
 		register_clcmd("say /createspawn", "createSpawn", 0);
 		register_clcmd("say /guns", "reenableMenu",0);
-		register_menucmd(register_menuid("Which Weapon?"), key_all, "weaponPicked");
+		init_menus();
 		sv_godmodetime = register_cvar("sv_godmodetime","1.5",FCVAR_SERVER);
 		g_godModeTime = get_pcvar_float(sv_godmodetime);
 		g_maxPlayers = get_maxplayers();
 	}
+}
+
+public init_menus()
+{
+	g_menu_main = menu_create("Weapon Main Menu","mainMenuHandle");
+	menu_additem(g_menu_main,"New Weapons","0",0);
+	menu_additem(g_menu_main,"Last Weapons","1",0);
+	menu_additem(g_menu_main,"Remember Weapons","2",0);
+	menu_setprop(g_menu_main, MPROP_EXIT, MEXIT_ALL);
+	g_menu_prim = menu_create("Primary Weapons","primaryWeaponPicked");
+	menu_additem(g_menu_prim,"M4A1","0",0);
+	menu_additem(g_menu_prim,"AK-47","1",0);
+	menu_additem(g_menu_prim,"SG552","2",0);
+	menu_additem(g_menu_prim,"AUG","3",0);
+	menu_additem(g_menu_prim,"M3","4",0);
+	menu_additem(g_menu_prim,"MP5","5",0);
+	menu_additem(g_menu_prim,"PARA","6",0);
+	menu_additem(g_menu_prim,"AWP","7",0);
+	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
 }
 
 /*
@@ -281,7 +304,7 @@ public createSpawn(id)
 		entity_set_vector(g_iEnt[g_origins], EV_VEC_angles, g_angle[g_origins]);
 		
 		glow(g_iEnt[g_origins],{0,255,0},255);
-			
+		
 		g_origins++;
 	}
 	return PLUGIN_CONTINUE;
@@ -342,7 +365,8 @@ public playerSpawned(id)
 		if(!is_user_bot(id) && !g_remember[id-1])
 		{
 			//show the Menu for the Weapons
-			set_task(0.1,"showWeapons",id);
+			menu_display(id,g_menu_main,0);
+			//set_task(0.1,"showWeapons",id);
 		}
 		else
 		{
@@ -401,39 +425,59 @@ public stopGodMode(id)
 }
 
 /*
-* shows weapon menu #1
+* Handle for the main Menu
 */
-public showWeapons(id)
+public mainMenuHandle(id, menu ,item)
 {
-	if(id > 32)
+	if(id > 32 || item == MENU_EXIT)
 	{
-		return;
+		return PLUGIN_HANDLED;
 	}
-	new menuBody[193];
-	format(menuBody, 192, "\rWhich Weapon?\R^n^n\y1.\w M4A1^n\y2.\w AK-47^n\y3.\w SG550^n\y4.\w AUG^n\y5.\w M3^n\y6.\w MP5^n\y7.\w PARA^n\y8.\w AWP^n\y9.\w last Weapon forever");
-	show_menu(id, key_all, menuBody);
+	
+	new data[6], szName[64];
+	new access, callback;
+	
+	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
+	
+	switch(str_to_num(data))
+	{
+		case 0:
+		{
+			menu_display(id,g_menu_prim,0);
+		}
+		case 1:
+		{
+			giveWeapons(id);
+		}
+		case 2:
+		{
+			g_remember[id-1] = true;
+			giveWeapons(id);
+			set_hudmessage(255, 0, 0, -1.0, 0.30, 0, 3.0, 6.0);
+			show_hudmessage(id,"To re-enable the menu say /guns");
+		}
+	}
+	return PLUGIN_HANDLED;
 }
 
 /*
 * called after weapon menu is closed. Gives weapon to player
 */
-public weaponPicked(id, key)
+public primaryWeaponPicked(id, menu, item)
 {
-	if(id > 32)
+	if(id > 32 || item == MENU_EXIT)
 	{
-		return;
+		return PLUGIN_HANDLED;
 	}
-	if(key == 8 || key == 9)
-	{
-		g_remember[id-1] = true;
-		set_hudmessage(255, 0, 0, -1.0, 0.30, 0, 3.0, 6.0);
-		show_hudmessage(id,"To re-enable the menu say /guns");
-	}
-	else
-	{	
-		g_primary[id-1] = PrimaryWeapons:key;
-	}
+	
+	new data[6], szName[64];
+	new access, callback;
+	
+	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
+	g_primary[id-1] = PrimaryWeapons:str_to_num(data);
+	
 	giveWeapons(id);
+	return PLUGIN_HANDLED;
 }
 
 /*
@@ -467,25 +511,25 @@ public giveWeapons(id)
 public spawnPlayer(id)
 {
 	// Disconnected, already spawned, or switched to Spectator
-    if (!is_user_connected(id) 
-		|| is_user_alive(id) 
-		|| cs_get_user_team(id) == CS_TEAM_SPECTATOR 
-		|| cs_get_user_team(id) == CS_TEAM_UNASSIGNED
-		|| id >32)
-    {   
-	   return;
+	if (!is_user_connected(id) 
+	|| is_user_alive(id) 
+	|| cs_get_user_team(id) == CS_TEAM_SPECTATOR 
+	|| cs_get_user_team(id) == CS_TEAM_UNASSIGNED
+	|| id >32)
+	{   
+		return;
 	}
-    
-    // Try to spawn the player setting the appropiate dead flag and forcing a think
-    set_pev(id, pev_deadflag, DEAD_RESPAWNABLE);
-    dllfunc(DLLFunc_Think, id);
-
-    // Fix for Bots: DLLFunc_Think won't work on them,
-    // but DLLFunc_Spawn does the job without any bugs.
-    if (is_user_bot(id) && pev(id, pev_deadflag) == DEAD_RESPAWNABLE)
-    {
-        dllfunc(DLLFunc_Spawn, id);
-    }
+	
+	// Try to spawn the player setting the appropiate dead flag and forcing a think
+	set_pev(id, pev_deadflag, DEAD_RESPAWNABLE);
+	dllfunc(DLLFunc_Think, id);
+	
+	// Fix for Bots: DLLFunc_Think won't work on them,
+	// but DLLFunc_Spawn does the job without any bugs.
+	if (is_user_bot(id) && pev(id, pev_deadflag) == DEAD_RESPAWNABLE)
+	{
+		dllfunc(DLLFunc_Spawn, id);
+	}
 }
 
 
@@ -539,9 +583,9 @@ public teamAssigned()
 		}
 		
 		new szTeam[2];
-
+		
 		read_data(2, szTeam, charsmax(szTeam))
-
+		
 		switch(szTeam[0])
 		{
 			case 'T','C':
