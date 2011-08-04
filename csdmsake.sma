@@ -23,12 +23,9 @@ enum PrimaryWeapons
 	M3,
 	MP5,
 	PARA,
-	AWP
-}
-
-enum SecondaryWeapons
-{
-	DEAGLE
+	AWP,
+	SCOUT,
+	P90
 }
 
 new const g_weapon_name_prim[PrimaryWeapons][] =
@@ -40,7 +37,9 @@ new const g_weapon_name_prim[PrimaryWeapons][] =
 	"weapon_m3",
 	"weapon_mp5navy",
 	"weapon_m249",
-	"weapon_awp"
+	"weapon_awp",
+	"weapon_scout",
+	"weapon_p90"
 };
 
 new const g_weapon_ammo_prim[PrimaryWeapons][] =
@@ -52,17 +51,37 @@ new const g_weapon_ammo_prim[PrimaryWeapons][] =
 	"buckshot",
 	"9mm",
 	"556natobox",
-	"338magnum"
+	"338magnum",
+	"762nato",
+	"57mm"
 };
+
+enum SecondaryWeapons
+{
+	DEAGLE,
+	USP,
+	GLOCK,
+	ELITE,
+	FIVESEVEN
+}
+
 
 new const g_weapon_name_sec[SecondaryWeapons][] =
 {
-	"weapon_deagle"
+	"weapon_deagle",
+	"weapon_usp",
+	"weapon_glock18",
+	"weapon_elite",
+	"weapon_fiveseven"
 }
 
 new const g_weapon_ammo_sec[SecondaryWeapons][] =
 {
-	"50ae"
+	"50ae",
+	"45acp",
+	"9mm",
+	"9mm",
+	"57mm"
 }
 
 //vars for weapons
@@ -96,6 +115,7 @@ new g_maxPlayers = 0;
 //menus
 new g_menu_main;
 new g_menu_prim;
+new g_menu_sec;
 
 public plugin_init()
 {
@@ -133,6 +153,15 @@ public init_menus()
 	menu_additem(g_menu_prim,"MP5","5",0);
 	menu_additem(g_menu_prim,"PARA","6",0);
 	menu_additem(g_menu_prim,"AWP","7",0);
+	menu_additem(g_menu_prim,"Scout","8",0);
+	menu_additem(g_menu_prim,"P90","9",0);
+	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
+	g_menu_sec = menu_create("Secondary Weapons","secondaryWeaponPicked");
+	menu_additem(g_menu_sec,"Desert Eagle","0",0);
+	menu_additem(g_menu_sec,"USP","1",0);
+	menu_additem(g_menu_sec,"Glock18","2",0);
+	menu_additem(g_menu_sec,"Dual Elites","3",0);
+	menu_additem(g_menu_sec,"Five-Seven","4",0);
 	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
 }
 
@@ -461,7 +490,7 @@ public mainMenuHandle(id, menu ,item)
 }
 
 /*
-* called after weapon menu is closed. Gives weapon to player
+* called after primary weapons menu is closed. Gives weapon to player
 */
 public primaryWeaponPicked(id, menu, item)
 {
@@ -475,6 +504,27 @@ public primaryWeaponPicked(id, menu, item)
 	
 	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
 	g_primary[id-1] = PrimaryWeapons:str_to_num(data);
+	
+	//display the secondary weapons menu
+	menu_display(id,g_menu_sec,0);
+	return PLUGIN_HANDLED;
+}
+
+/*
+* called after secondary weapons menu is closed. Gives weapon to player
+*/
+public secondaryWeaponPicked(id, menu, item)
+{
+	if(id > 32 || item == MENU_EXIT)
+	{
+		return PLUGIN_HANDLED;
+	}
+	
+	new data[6], szName[64];
+	new access, callback;
+	
+	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
+	g_secondary[id-1] = SecondaryWeapons:str_to_num(data);
 	
 	giveWeapons(id);
 	return PLUGIN_HANDLED;
