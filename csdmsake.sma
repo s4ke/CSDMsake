@@ -87,7 +87,7 @@ new const g_weapon_ammo_sec[SecondaryWeapons][] =
 //vars for weapons
 new PrimaryWeapons:g_primary[32] = M4A1;
 new SecondaryWeapons:g_secondary[32] = DEAGLE;
-new bool:g_remember[32] = {false, ...}
+new bool:g_remember[32];
 
 //pointer vor CVAR for spawnprotection
 new sv_godmodetime;
@@ -393,9 +393,14 @@ public playerSpawned(id)
 		setNewOrigin(id);
 		if(!is_user_bot(id) && !g_remember[id-1])
 		{
-			//show the Menu for the Weapons
-			menu_display(id,g_menu_main,0);
-			//set_task(0.1,"showWeapons",id);
+			new menu,keys;
+			get_user_menu(id,menu,keys);
+			//only show the menu if no other is being displayed
+			if(menu == 0)
+			{
+				//show the Menu for the Weapons
+				menu_display(id,g_menu_main,0);
+			}
 		}
 		else
 		{
