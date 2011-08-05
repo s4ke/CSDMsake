@@ -165,6 +165,8 @@ public init_menus()
 	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
 }
 
+/////////////////////////////////////Forwarded Functions//////////////////////////////////////
+
 /*
 * If user connects the playercount + 1 and maybe kick RoundEndBlockers
 */
@@ -208,6 +210,8 @@ public plugin_pause()
 	kickBots();
 }
 
+/////////////////////////////////////EventHandling Functions//////////////////////////////////////
+
 /*
 * prevent bodies from appearing after user death
 */
@@ -215,6 +219,117 @@ public blockBodies(msg_id, msg_dest, msg_entity)
 {
 	return PLUGIN_HANDLED;
 }
+
+/*
+* create RoundEndBlockers at the end of the first round.
+*/
+public roundEnd()
+{
+	if(g_players >= g_maxPlayers -1 || g_players > g_botCreateNumber)
+	{
+		return;
+	}
+	while(g_botnum < 2 && g_failCount < 5)
+	{
+		createBot();
+	}
+}
+
+/*
+* function for respawning on death
+*/
+public playerKilled()
+{
+	new victim = read_data(2);
+	set_task(0.5,"spawnPlayer",victim);
+	return PLUGIN_CONTINUE;
+}
+
+/*
+* called on spawn, if user is bot he gets default weapons, if not he can decide (showWeapons).
+* Spawnprotection is turned on
+*/
+public playerSpawned(id)
+{
+	if(id == g_bots[0])
+	{
+		cs_set_user_team(id,CS_TEAM_CT);
+		hideBot(id);
+	}
+	else if(id == g_bots[1])
+	{
+		cs_set_user_team(id,CS_TEAM_T);
+		hideBot(id);
+	}
+	if(is_user_alive(id) && id <= 32)
+	{
+		set_task(0.1,"startGodMode",id);
+		set_task(g_godModeTime+0.1,"stopGodMode",id);
+		setNewOrigin(id);
+		if(!is_user_bot(id) && !g_remember[id-1])
+		{
+			new menu,keys;
+			get_user_menu(id,menu,keys);
+			//only show the menu if no other is being displayed
+			if(menu == 0)
+			{
+				//show the Menu for the Weapons
+				menu_display(id,g_menu_main,0);
+			}
+		}
+		else
+		{
+			//Bots get standard Weapons, and if g_remember == true players get the last weapons they selected
+			giveWeapons(id);
+		}
+	}	
+}
+
+/////////////////////////////////////Custom Spawn Functions//////////////////////////////////////
+
+/*
+* spawns the player on the CSDM spawns if available
+*/
+public setNewOrigin(id)
+{
+	if(g_origins > 0 && id <= 32)
+	{
+		//origins-1 -> origins+1 when creating new origin
+		new num = random_num(0,g_origins-1);
+		engfunc(EngFunc_SetOrigin, id, g_origin[num]);
+		//set_es(0,ES_Angles,angle[num]);
+		entity_set_vector(id, EV_VEC_angles, g_angle[num]);
+	}
+}
+
+/*
+* creates a spawn and makes the last created spawn glow
+*/
+public createSpawn(id)
+{
+	if(g_origins < 62 && is_user_admin(id))
+	{
+		entity_get_vector(id, EV_VEC_origin, g_origin[g_origins]);
+		entity_get_vector(id, EV_VEC_angles, g_angle[g_origins]);
+		
+		if(g_origins > 0)
+		{
+			unglow(g_iEnt[g_origins-1]);
+		}
+		
+		g_iEnt[g_origins] = create_entity("info_target" );
+		entity_set_model(g_iEnt[g_origins],"models/player/gign/gign.mdl");
+		engfunc(EngFunc_SetOrigin, g_iEnt[g_origins], g_origin[g_origins]);
+		entity_set_vector(g_iEnt[g_origins], EV_VEC_angles, g_angle[g_origins]);
+		
+		glow(g_iEnt[g_origins],{0,255,0},255);
+		
+		g_origins++;
+	}
+	return PLUGIN_CONTINUE;
+}
+
+/////////////////////////////////////RoundendBlocker Functions//////////////////////////////////////
 
 /*
 * Kicks the bots
@@ -234,21 +349,6 @@ public kickBots()
 		server_print("[CSDM - RoundEndBlocker] Kicking bot!");
 		server_cmd("kick #%d", get_user_userid(g_bots[1]));
 		g_botnum--;
-	}
-}
-
-/*
-* create RoundEndBlockers at the end of the first round.
-*/
-public roundEnd()
-{
-	if(g_players >= g_maxPlayers -1 || g_players > g_botCreateNumber)
-	{
-		return;
-	}
-	while(g_botnum < 2 && g_failCount < 5)
-	{
-		createBot();
 	}
 }
 
@@ -302,42 +402,7 @@ public hideBot(bot)
 	message_end();
 }
 
-/*
-* function for respawning on death
-*/
-public playerKilled()
-{
-	new victim = read_data(2);
-	set_task(0.5,"spawnPlayer",victim);
-	return PLUGIN_CONTINUE;
-}
-
-/*
-* creates a spawn and makes the last created spawn glow
-*/
-public createSpawn(id)
-{
-	if(g_origins < 62 && is_user_admin(id))
-	{
-		entity_get_vector(id, EV_VEC_origin, g_origin[g_origins]);
-		entity_get_vector(id, EV_VEC_angles, g_angle[g_origins]);
-		
-		if(g_origins > 0)
-		{
-			unglow(g_iEnt[g_origins-1]);
-		}
-		
-		g_iEnt[g_origins] = create_entity("info_target" );
-		entity_set_model(g_iEnt[g_origins],"models/player/gign/gign.mdl");
-		engfunc(EngFunc_SetOrigin, g_iEnt[g_origins], g_origin[g_origins]);
-		entity_set_vector(g_iEnt[g_origins], EV_VEC_angles, g_angle[g_origins]);
-		
-		glow(g_iEnt[g_origins],{0,255,0},255);
-		
-		g_origins++;
-	}
-	return PLUGIN_CONTINUE;
-}
+/////////////////////////////////////Spawnprotection & Color Functions//////////////////////////////////////
 
 /*
 * lets entities glow in a defined color
@@ -355,75 +420,6 @@ public unglow(id)
 	fm_set_user_rendering(id,kRenderFxNone,0,0,0,kRenderNormal,0);
 }
 
-/*
-* called after user says /guns, reenables the menu
-*/
-public reenableMenu(id)
-{
-	if(id > 32)
-	{
-		return PLUGIN_CONTINUE;
-	}
-	g_remember[id-1] = false;
-	set_hudmessage(255, 0, 0, -1.0, 0.30, 0, 3.0, 6.0);
-	show_hudmessage(id,"Weapon menu re-enabled on next respawn!");
-	return PLUGIN_CONTINUE;
-}
-
-/*
-* called on spawn, if user is bot he gets default weapons, if not he can decide (showWeapons).
-* Spawnprotection is turned on
-*/
-public playerSpawned(id)
-{
-	if(id == g_bots[0])
-	{
-		cs_set_user_team(id,CS_TEAM_CT);
-		hideBot(id);
-	}
-	else if(id == g_bots[1])
-	{
-		cs_set_user_team(id,CS_TEAM_T);
-		hideBot(id);
-	}
-	if(is_user_alive(id) && id <= 32)
-	{
-		set_task(0.1,"startGodMode",id);
-		set_task(g_godModeTime+0.1,"stopGodMode",id);
-		setNewOrigin(id);
-		if(!is_user_bot(id) && !g_remember[id-1])
-		{
-			new menu,keys;
-			get_user_menu(id,menu,keys);
-			//only show the menu if no other is being displayed
-			if(menu == 0)
-			{
-				//show the Menu for the Weapons
-				menu_display(id,g_menu_main,0);
-			}
-		}
-		else
-		{
-			//Bots get standard Weapons, and if g_remember == true players get the last weapons they selected
-			giveWeapons(id);
-		}
-	}	
-}
-
-/*
-* spawns the player on the CSDM spawns if available
-*/
-public setNewOrigin(id)
-{
-	if(g_origins > 0 && id <= 32)
-	{
-		//origins-1 -> origins+1 when creating new origin
-		new num = random_num(0,g_origins-1);
-		engfunc(EngFunc_SetOrigin, id, g_origin[num]);
-		//set_es(0,ES_Angles,angle[num]);
-		entity_set_vector(id, EV_VEC_angles, g_angle[num]);
-	}
-}
 
 /*
 * used to start the godmode. Lets the user glow. (both only when he is alive (to prevent possible bug?))
@@ -457,6 +453,8 @@ public stopGodMode(id)
 	fm_set_user_godmode(id,0);
 	unglow(id);
 }
+
+/////////////////////////////////////Menu Handles//////////////////////////////////////
 
 /*
 * Handle for the main Menu
@@ -534,6 +532,23 @@ public secondaryWeaponPicked(id, menu, item)
 	giveWeapons(id);
 	return PLUGIN_HANDLED;
 }
+
+/*
+* called after user says /guns, reenables the menu
+*/
+public reenableMenu(id)
+{
+	if(id > 32)
+	{
+		return PLUGIN_CONTINUE;
+	}
+	g_remember[id-1] = false;
+	set_hudmessage(255, 0, 0, -1.0, 0.30, 0, 3.0, 6.0);
+	show_hudmessage(id,"Weapon menu re-enabled on next respawn!");
+	return PLUGIN_CONTINUE;
+}
+
+/////////////////////////////////////Respawning, giving Weapons, Teams, etc.//////////////////////////////////////
 
 /*
 * method for giving users weapons
