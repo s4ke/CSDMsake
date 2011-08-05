@@ -560,16 +560,16 @@ public giveWeapons(id)
 		fm_strip_user_weapons(id);
 		cs_set_user_armor(id,100,CS_ARMOR_VESTHELM);
 		
-		//give the user his knife back
-		fm_give_item(id,"weapon_knife");
+		//give the user the primary weapon he has chosen
+		fm_give_item(id,g_weapon_name_prim[g_primary[id-1]]);
+		ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_prim[g_primary[id-1]], 200);
 		
 		//give the user the secondary weapon he has chosen
 		fm_give_item(id,g_weapon_name_sec[g_secondary[id-1]]);
 		ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_sec[g_secondary[id-1]], 200);
 		
-		//give the user the primary weapon he has chosen
-		fm_give_item(id,g_weapon_name_prim[g_primary[id-1]]);
-		ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_prim[g_primary[id-1]], 200);	
+		//give the user his knife back
+		fm_give_item(id,"weapon_knife");			
 	}
 }
 
