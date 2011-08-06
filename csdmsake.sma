@@ -14,7 +14,7 @@
 
 #define key_all      MENU_KEY_0 | MENU_KEY_1 | MENU_KEY_2 | MENU_KEY_3 | MENU_KEY_4 | MENU_KEY_5 | MENU_KEY_6 | MENU_KEY_7 | MENU_KEY_8 | MENU_KEY_9
 
-enum PrimaryWeapons
+enum PrimaryWeapon
 {
 	M4A1,
 	AK47,
@@ -25,10 +25,16 @@ enum PrimaryWeapons
 	PARA,
 	AWP,
 	SCOUT,
-	P90
+	P90,
+	XM1014,
+	MAC10,
+	UMP45,
+	TMP,
+	G3SG1,
+	SG550
 }
 
-new const g_weapon_name_prim[PrimaryWeapons][] =
+new const g_weapon_name_prim[PrimaryWeapon][] =
 {
 	"weapon_m4a1",
 	"weapon_ak47",
@@ -39,10 +45,16 @@ new const g_weapon_name_prim[PrimaryWeapons][] =
 	"weapon_m249",
 	"weapon_awp",
 	"weapon_scout",
-	"weapon_p90"
+	"weapon_p90",
+	"weapon_xm1014",
+	"weapon_mac10",
+	"weapon_ump45",
+	"weapon_tmp",
+	"weapon_g3sg1",
+	"weapon_sg550"
 };
 
-new const g_weapon_ammo_prim[PrimaryWeapons][] =
+new const g_weapon_ammo_prim[PrimaryWeapon][] =
 {
 	"556nato",
 	"762nato",
@@ -53,10 +65,16 @@ new const g_weapon_ammo_prim[PrimaryWeapons][] =
 	"556natobox",
 	"338magnum",
 	"762nato",
-	"57mm"
+	"57mm",
+	"buckshot",
+	"45acp",
+	"45acp",
+	"9mm",
+	"762nato",
+	"556nato"
 };
 
-enum SecondaryWeapons
+enum SecondaryWeapon
 {
 	DEAGLE,
 	USP,
@@ -66,7 +84,7 @@ enum SecondaryWeapons
 }
 
 
-new const g_weapon_name_sec[SecondaryWeapons][] =
+new const g_weapon_name_sec[SecondaryWeapon][] =
 {
 	"weapon_deagle",
 	"weapon_usp",
@@ -75,7 +93,7 @@ new const g_weapon_name_sec[SecondaryWeapons][] =
 	"weapon_fiveseven"
 }
 
-new const g_weapon_ammo_sec[SecondaryWeapons][] =
+new const g_weapon_ammo_sec[SecondaryWeapon][] =
 {
 	"50ae",
 	"45acp",
@@ -85,8 +103,8 @@ new const g_weapon_ammo_sec[SecondaryWeapons][] =
 }
 
 //vars for weapons
-new PrimaryWeapons:g_primary[32] = M4A1;
-new SecondaryWeapons:g_secondary[32] = DEAGLE;
+new PrimaryWeapon:g_primary[32] = M4A1;
+new SecondaryWeapon:g_secondary[32] = DEAGLE;
 new bool:g_remember[32];
 
 //pointer vor CVAR for spawnprotection
@@ -155,6 +173,12 @@ public init_menus()
 	menu_additem(g_menu_prim,"AWP","7",0);
 	menu_additem(g_menu_prim,"Scout","8",0);
 	menu_additem(g_menu_prim,"P90","9",0);
+	menu_additem(g_menu_prim,"XM1014","10",0);
+	menu_additem(g_menu_prim,"Mac10","11",0);
+	menu_additem(g_menu_prim,"UMP45","12",0);
+	menu_additem(g_menu_prim,"TMP","13",0);
+	menu_additem(g_menu_prim,"G3SG1","14",0);
+	menu_additem(g_menu_prim,"SG550","15",0);
 	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
 	g_menu_sec = menu_create("Secondary Weapons","secondaryWeaponPicked");
 	menu_additem(g_menu_sec,"Desert Eagle","0",0);
@@ -463,6 +487,7 @@ public mainMenuHandle(id, menu ,item)
 {
 	if(id > 32 || item == MENU_EXIT)
 	{
+		menu_display(id,g_menu_main,0);
 		return PLUGIN_HANDLED;
 	}
 	
@@ -499,6 +524,7 @@ public primaryWeaponPicked(id, menu, item)
 {
 	if(id > 32 || item == MENU_EXIT)
 	{
+		menu_display(id,g_menu_prim,0);
 		return PLUGIN_HANDLED;
 	}
 	
@@ -506,7 +532,7 @@ public primaryWeaponPicked(id, menu, item)
 	new access, callback;
 	
 	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
-	g_primary[id-1] = PrimaryWeapons:str_to_num(data);
+	g_primary[id-1] = PrimaryWeapon:str_to_num(data);
 	
 	//display the secondary weapons menu
 	menu_display(id,g_menu_sec,0);
@@ -520,6 +546,7 @@ public secondaryWeaponPicked(id, menu, item)
 {
 	if(id > 32 || item == MENU_EXIT)
 	{
+		menu_display(id,g_menu_sec,0);
 		return PLUGIN_HANDLED;
 	}
 	
@@ -527,7 +554,7 @@ public secondaryWeaponPicked(id, menu, item)
 	new access, callback;
 	
 	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
-	g_secondary[id-1] = SecondaryWeapons:str_to_num(data);
+	g_secondary[id-1] = SecondaryWeapon:str_to_num(data);
 	
 	giveWeapons(id);
 	return PLUGIN_HANDLED;
