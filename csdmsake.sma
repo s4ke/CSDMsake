@@ -603,9 +603,7 @@ public giveWeapons(id)
 
 public ammoEmpty(iMsgId, iMsgDest, id)
 {
-	new ammo;
-	ammo = get_msg_arg_int(2);
-	if(ammo == 0)
+	if(get_msg_arg_int(2) == 0 && get_msg_arg_int(1) < 11)
 	{
 		set_task(0.1,"giveAmmo",id);
 	}
