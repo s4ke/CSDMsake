@@ -618,9 +618,11 @@ public giveAmmo(id)
 	{
 		//give the user the primary weapon ammo he has chosen
 		fm_give_item(id,g_weapon_ammo_prim[g_primary[id-1]]);
+		fm_give_item(id,g_weapon_ammo_prim[g_primary[id-1]]);
 		
 		//give the user the secondary weapon ammo he has chosen
-		fm_give_item(id,g_weapon_ammo_sec[g_secondary[id-1]]);		
+		fm_give_item(id,g_weapon_ammo_sec[g_secondary[id-1]]);
+		fm_give_item(id,g_weapon_ammo_sec[g_secondary[id-1]]);
 	}
 }
 /*
