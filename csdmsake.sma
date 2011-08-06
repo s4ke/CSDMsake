@@ -56,22 +56,22 @@ new const g_weapon_name_prim[PrimaryWeapon][] =
 
 new const g_weapon_ammo_prim[PrimaryWeapon][] =
 {
-	"556nato",
-	"762nato",
-	"556nato",
-	"556nato",
-	"buckshot",
-	"9mm",
-	"556natobox",
-	"338magnum",
-	"762nato",
-	"57mm",
-	"buckshot",
-	"45acp",
-	"45acp",
-	"9mm",
-	"762nato",
-	"556nato"
+	"ammo_556nato",
+	"ammo_762nato",
+	"ammo_556nato",
+	"ammo_556nato",
+	"ammo_buckshot",
+	"ammo_9mm",
+	"ammo_556natobox",
+	"ammo_338magnum",
+	"ammo_762nato",
+	"ammo_57mm",
+	"ammo_buckshot",
+	"ammo_45acp",
+	"ammo_45acp",
+	"ammo_9mm",
+	"ammo_762nato",
+	"ammo_556nato"
 };
 
 enum SecondaryWeapon
@@ -95,11 +95,11 @@ new const g_weapon_name_sec[SecondaryWeapon][] =
 
 new const g_weapon_ammo_sec[SecondaryWeapon][] =
 {
-	"50ae",
-	"45acp",
-	"9mm",
-	"9mm",
-	"57mm"
+	"ammo_50ae",
+	"ammo_45acp",
+	"ammo_9mm",
+	"ammo_9mm",
+	"ammo_57mm"
 }
 
 //vars for weapons
@@ -144,6 +144,7 @@ public plugin_init()
 		register_event("DeathMsg", "playerKilled", "a");
 		register_event("TeamInfo", "teamAssigned", "a");
 		register_message(get_user_msgid("ClCorpse"),"blockBodies");
+		register_message(get_user_msgid("AmmoX"),"ammoEmpty");
 		register_event("SendAudio", "roundEnd", "a", "2&%!MRAD_terwin", "2&%!MRAD_ctwin");
 		register_clcmd("say /respawn", "respawnPlayer", 0);
 		register_clcmd("say /createspawn", "createSpawn", 0);
@@ -589,17 +590,39 @@ public giveWeapons(id)
 		
 		//give the user the primary weapon he has chosen
 		fm_give_item(id,g_weapon_name_prim[g_primary[id-1]]);
-		ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_prim[g_primary[id-1]], 200);
+		//ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_prim[g_primary[id-1]], 200);
 		
 		//give the user the secondary weapon he has chosen
 		fm_give_item(id,g_weapon_name_sec[g_secondary[id-1]]);
-		ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_sec[g_secondary[id-1]], 200);
+		//ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_sec[g_secondary[id-1]], 200);
 		
 		//give the user his knife back
 		fm_give_item(id,"weapon_knife");			
 	}
 }
 
+public ammoEmpty(iMsgId, iMsgDest, id)
+{
+	new ammo;
+	ammo = get_msg_arg_int(2);
+	if(ammo == 0)
+	{
+		set_task(0.1,"giveAmmo",id);
+	}
+	return PLUGIN_CONTINUE;
+}
+
+public giveAmmo(id)
+{
+	if(id <= 32 && is_user_alive(id) && pev(id,pev_weapons))
+	{
+		//give the user the primary weapon ammo he has chosen
+		fm_give_item(id,g_weapon_ammo_prim[g_primary[id-1]]);
+		
+		//give the user the secondary weapon ammo he has chosen
+		fm_give_item(id,g_weapon_ammo_sec[g_secondary[id-1]]);		
+	}
+}
 /*
 * simple spawnPlayer method. spawns player.
 * credits:
