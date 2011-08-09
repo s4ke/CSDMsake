@@ -3,10 +3,10 @@
 */
 
 #include <amxmisc>
-#include <hamsandwich>
 #include <cstrike>
 #include <fakemeta_util>
 #include <engine>
+#include <orpheu>
 
 #define PLUGIN	"csdmsake"
 #define AUTHOR	"sake"
@@ -56,22 +56,22 @@ new const g_weapon_name_prim[PrimaryWeapon][] =
 
 new const g_weapon_ammo_prim[PrimaryWeapon][] =
 {
-	"ammo_556nato",
-	"ammo_762nato",
-	"ammo_556nato",
-	"ammo_556nato",
-	"ammo_buckshot",
-	"ammo_9mm",
-	"ammo_556natobox",
-	"ammo_338magnum",
-	"ammo_762nato",
-	"ammo_57mm",
-	"ammo_buckshot",
-	"ammo_45acp",
-	"ammo_45acp",
-	"ammo_9mm",
-	"ammo_762nato",
-	"ammo_556nato"
+	"556nato",
+	"762nato",
+	"556nato",
+	"556nato",
+	"buckshot",
+	"9mm",
+	"556natobox",
+	"338magnum",
+	"762nato",
+	"57mm",
+	"buckshot",
+	"45acp",
+	"45acp",
+	"9mm",
+	"762nato",
+	"556nato"
 };
 
 enum SecondaryWeapon
@@ -95,11 +95,11 @@ new const g_weapon_name_sec[SecondaryWeapon][] =
 
 new const g_weapon_ammo_sec[SecondaryWeapon][] =
 {
-	"ammo_50ae",
-	"ammo_45acp",
-	"ammo_9mm",
-	"ammo_9mm",
-	"ammo_57mm"
+	"50ae",
+	"45acp",
+	"9mm",
+	"9mm",
+	"57mm"
 }
 
 //vars for weapons
@@ -135,21 +135,37 @@ new g_menu_main;
 new g_menu_prim;
 new g_menu_sec;
 
+//orpheu methods
+new OrpheuFunction:g_giveAmmo;
+
+//icon name for buyzone
+//new g_iconName[] = "buyzone"
+
+public plugin_precache()
+{
+	
+}
+
 public plugin_init()
 {
 	if(cstrike_running())
 	{
 		register_plugin(PLUGIN, VERSION, AUTHOR);
-		RegisterHam(Ham_Spawn,"player","playerSpawned",1);
 		register_event("DeathMsg", "playerKilled", "a");
 		register_event("TeamInfo", "teamAssigned", "a");
 		register_message(get_user_msgid("ClCorpse"),"blockMessage");
-		register_message(get_user_msgid("AmmoPickup"),"blockMessage");
-		register_message(get_user_msgid("WeapPickup"),"blockMessage");
+		register_message(get_user_msgid("StatusIcon"), "blockMessage");
+		register_clcmd("buy", "blockCmd")
+		register_clcmd("buyequip", "blockCmd")
 		register_event("SendAudio", "roundEnd", "a", "2&%!MRAD_terwin", "2&%!MRAD_ctwin");
 		register_clcmd("say /respawn", "respawnPlayer", 0);
 		register_clcmd("say /createspawn", "createSpawn", 0);
 		register_clcmd("say /guns", "reenableMenu",0);
+		register_clcmd("say /ammo","giveAmmo",0);
+		register_clcmd("say ammo","giveAmmo",0);
+		g_giveAmmo = OrpheuGetFunctionFromClass("player","giveAmmo","CBasePlayer");
+		new OrpheuFunction:spawn = OrpheuGetFunctionFromClass("player","spawn","CBasePlayer");
+		OrpheuRegisterHook(spawn,"playerSpawned",OrpheuHookPost);
 		init_menus();
 		sv_godmodetime = register_cvar("sv_godmodetime","1.5",FCVAR_SERVER);
 		g_godModeTime = get_pcvar_float(sv_godmodetime);
@@ -242,6 +258,14 @@ public plugin_pause()
 * prevents Messages
 */
 public blockMessage(msg_id, msg_dest, msg_entity)
+{
+	return PLUGIN_HANDLED;
+}
+
+/*
+* prevents commands
+*/
+public blockCmd(id)
 {
 	return PLUGIN_HANDLED;
 }
@@ -591,21 +615,26 @@ public giveWeapons(id)
 		
 		//give the user the primary weapon he has chosen
 		fm_give_item(id,g_weapon_name_prim[g_primary[id-1]]);
-		fm_give_item(id,g_weapon_ammo_prim[g_primary[id-1]]);
-		fm_give_item(id,g_weapon_ammo_prim[g_primary[id-1]]);
-		fm_give_item(id,g_weapon_ammo_prim[g_primary[id-1]]);
 		//ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_prim[g_primary[id-1]], 200);
 		
 		//give the user the secondary weapon he has chosen
 		fm_give_item(id,g_weapon_name_sec[g_secondary[id-1]]);
-		fm_give_item(id,g_weapon_ammo_sec[g_secondary[id-1]]);
-		fm_give_item(id,g_weapon_ammo_sec[g_secondary[id-1]]);
-		fm_give_item(id,g_weapon_ammo_sec[g_secondary[id-1]]);
 		//ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_sec[g_secondary[id-1]], 200);
 		
 		//give the user his knife back
-		fm_give_item(id,"weapon_knife");			
+		fm_give_item(id,"weapon_knife");	
+		
+		giveAmmo(id);
 	}
+}
+
+/*
+* Gives the user the ammo for his weapons
+*/
+public giveAmmo(id)
+{
+	OrpheuCallSuper(g_giveAmmo,id,200,g_weapon_ammo_prim[g_primary[id-1]],200);
+	OrpheuCallSuper(g_giveAmmo,id,200,g_weapon_ammo_sec[g_secondary[id-1]],200);
 }
 
 /*
