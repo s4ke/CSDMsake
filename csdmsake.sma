@@ -5,10 +5,11 @@
 #include <amxmisc>
 #include <cstrike>
 #include <fakemeta_util>
-#include <engine>
-#include <orpheu>
+#include <hamsandwich>
+#include <fun>
 
 #define PLUGIN	"csdmsake"
+#define PLUGIN_IDENTIFIER "[CSDMsake]" 
 #define AUTHOR	"sake"
 #define VERSION	"1.0"
 
@@ -80,7 +81,8 @@ enum SecondaryWeapon
 	USP,
 	GLOCK,
 	ELITE,
-	FIVESEVEN
+	FIVESEVEN,
+	P228
 }
 
 
@@ -90,7 +92,8 @@ new const g_weapon_name_sec[SecondaryWeapon][] =
 	"weapon_usp",
 	"weapon_glock18",
 	"weapon_elite",
-	"weapon_fiveseven"
+	"weapon_fiveseven",
+	"weapon_p228"
 }
 
 new const g_weapon_ammo_sec[SecondaryWeapon][] =
@@ -99,29 +102,25 @@ new const g_weapon_ammo_sec[SecondaryWeapon][] =
 	"45acp",
 	"9mm",
 	"9mm",
-	"57mm"
+	"57mm",
+	"357sig"
 }
 
 //vars for weapons
 new PrimaryWeapon:g_primary[32] = M4A1;
 new SecondaryWeapon:g_secondary[32] = DEAGLE;
 new bool:g_remember[32];
+new bool:g_hasWeapons[32];
 
 //pointer vor CVAR for spawnprotection
 new sv_godmodetime;
 new Float:g_godModeTime;
 
-//vars for custom spawns
-new Float:g_origin[64][3];
-new Float:g_angle[64][3];
-new g_iEnt[64];
-new g_origins = 0;
-
 //vars for RoundEndBlocking
 new g_botnum = 0;
 new g_bots[2];
 new g_failCount = 0;
-new const g_names[2][] = {"CSDM RoundEndBlocker1","CSDM RoundEndBlocker2"};
+new const g_names[2][] = {"CSDMsake RoundEndBlocker1","CSDMsake RoundEndBlocker2"};
 new const g_botCreateNumber = 6;
 new const g_botKickNumber = 10;
 
@@ -135,85 +134,111 @@ new g_menu_main;
 new g_menu_prim;
 new g_menu_sec;
 
-//orpheu methods
-new OrpheuFunction:g_giveAmmo;
-
-//icon name for buyzone
-//new g_iconName[] = "buyzone"
-
-public plugin_precache()
-{
-	
-}
-
 public plugin_init()
 {
 	if(cstrike_running())
 	{
 		register_plugin(PLUGIN, VERSION, AUTHOR);
-		register_event("DeathMsg", "playerKilled", "a");
-		register_event("TeamInfo", "teamAssigned", "a");
-		register_message(get_user_msgid("ClCorpse"),"blockMessage");
-		register_message(get_user_msgid("StatusIcon"), "blockMessage");
-		register_clcmd("buy", "blockCmd")
-		register_clcmd("buyequip", "blockCmd")
-		register_event("SendAudio", "roundEnd", "a", "2&%!MRAD_terwin", "2&%!MRAD_ctwin");
-		register_clcmd("say /respawn", "respawnPlayer", 0);
-		register_clcmd("say /createspawn", "createSpawn", 0);
-		register_clcmd("say /guns", "reenableMenu",0);
-		register_clcmd("say /ammo","giveAmmo",0);
-		register_clcmd("say ammo","giveAmmo",0);
-		g_giveAmmo = OrpheuGetFunctionFromClass("player","giveAmmo","CBasePlayer");
-		new OrpheuFunction:spawn = OrpheuGetFunctionFromClass("player","spawn","CBasePlayer");
-		OrpheuRegisterHook(spawn,"playerSpawned",OrpheuHookPost);
-		init_menus();
-		sv_godmodetime = register_cvar("sv_godmodetime","1.5",FCVAR_SERVER);
-		g_godModeTime = get_pcvar_float(sv_godmodetime);
-		g_maxPlayers = get_maxplayers();
+		initVars();
+		initMenus();
+		blockMessages();
+		registerEvents();	
+		registerHamHooks();
+		registerClCommands()
+		registerSayCommands();
 	}
 }
 
-public init_menus()
+initVars()
+{
+	sv_godmodetime = register_cvar("sv_godmodetime","1.5",FCVAR_SERVER);
+	g_godModeTime = get_pcvar_float(sv_godmodetime);
+	g_maxPlayers = get_maxplayers();
+}
+
+initMenus()
 {
 	g_menu_main = menu_create("Weapon Main Menu","mainMenuHandle");
-	menu_additem(g_menu_main,"New Weapons","0",0);
-	menu_additem(g_menu_main,"Last Weapons","1",0);
-	menu_additem(g_menu_main,"Remember Weapons","2",0);
-	menu_setprop(g_menu_main, MPROP_EXIT, MEXIT_ALL);
+	menu_additem(g_menu_main,"New Weapons");
+	menu_additem(g_menu_main,"Last Weapons");
+	menu_additem(g_menu_main,"Remember Weapons");
+	menu_setprop(g_menu_main, MPROP_EXIT, MEXIT_NEVER);
 	g_menu_prim = menu_create("Primary Weapons","primaryWeaponPicked");
-	menu_additem(g_menu_prim,"M4A1","0",0);
-	menu_additem(g_menu_prim,"AK-47","1",0);
-	menu_additem(g_menu_prim,"SG552","2",0);
-	menu_additem(g_menu_prim,"AUG","3",0);
-	menu_additem(g_menu_prim,"M3","4",0);
-	menu_additem(g_menu_prim,"MP5","5",0);
-	menu_additem(g_menu_prim,"PARA","6",0);
-	menu_additem(g_menu_prim,"AWP","7",0);
-	menu_additem(g_menu_prim,"Scout","8",0);
-	menu_additem(g_menu_prim,"P90","9",0);
-	menu_additem(g_menu_prim,"XM1014","10",0);
-	menu_additem(g_menu_prim,"Mac10","11",0);
-	menu_additem(g_menu_prim,"UMP45","12",0);
-	menu_additem(g_menu_prim,"TMP","13",0);
-	menu_additem(g_menu_prim,"G3SG1","14",0);
-	menu_additem(g_menu_prim,"SG550","15",0);
+	menu_additem(g_menu_prim,"M4A1");
+	menu_additem(g_menu_prim,"AK-47");
+	menu_additem(g_menu_prim,"SG552");
+	menu_additem(g_menu_prim,"AUG");
+	menu_additem(g_menu_prim,"M3");
+	menu_additem(g_menu_prim,"MP5");
+	menu_additem(g_menu_prim,"PARA");
+	menu_additem(g_menu_prim,"AWP");
+	menu_additem(g_menu_prim,"Scout");
+	menu_additem(g_menu_prim,"P90");
+	menu_additem(g_menu_prim,"XM1014");
+	menu_additem(g_menu_prim,"Mac10");
+	menu_additem(g_menu_prim,"UMP45");
+	menu_additem(g_menu_prim,"TMP");
+	menu_additem(g_menu_prim,"G3SG1");
+	menu_additem(g_menu_prim,"SG550");
 	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
 	g_menu_sec = menu_create("Secondary Weapons","secondaryWeaponPicked");
-	menu_additem(g_menu_sec,"Desert Eagle","0",0);
-	menu_additem(g_menu_sec,"USP","1",0);
-	menu_additem(g_menu_sec,"Glock18","2",0);
-	menu_additem(g_menu_sec,"Dual Elites","3",0);
-	menu_additem(g_menu_sec,"Five-Seven","4",0);
-	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
+	menu_additem(g_menu_sec,"Desert Eagle");
+	menu_additem(g_menu_sec,"USP");
+	menu_additem(g_menu_sec,"Glock18");
+	menu_additem(g_menu_sec,"Dual Elites");
+	menu_additem(g_menu_sec,"Five-Seven");
+	menu_additem(g_menu_sec,"P228");
+	menu_setprop(g_menu_sec, MPROP_EXIT, MEXIT_ALL);
+}
+
+registerSayCommands()
+{
+	register_clcmd("say /respawn", "respawnPlayer", 0);
+	register_clcmd("say respawn", "respawnPlayer", 0);
+	register_clcmd("say /guns", "reenableMenu",0);
+	register_clcmd("say guns", "reenableMenu",0);
+	register_clcmd("say /ammo","giveAmmo",0);
+	register_clcmd("say ammo","giveAmmo",0);
+}
+
+registerHamHooks()
+{
+	RegisterHam(Ham_Spawn, "player", "playerSpawned", 1);
+}
+
+registerEvents()
+{
+	register_event("DeathMsg", "playerKilled", "a");
+	register_event("TeamInfo", "teamAssigned", "a");
+	register_event("SendAudio", "roundEnd", "a", "2&%!MRAD_terwin", "2&%!MRAD_ctwin");
+}
+
+blockMessages()
+{
+	set_msg_block(get_user_msgid("ClCorpse"),BLOCK_SET);
+	set_msg_block(get_user_msgid("StatusIcon"),BLOCK_SET);
+}
+
+registerClCommands()
+{
+	register_clcmd("buy", "blockCmd");
+	register_clcmd("buyequip", "blockCmd");
+	register_clcmd("buyammo1", "blockCmd");
+	register_clcmd("buyammo2", "blockCmd");
 }
 
 /////////////////////////////////////Forwarded Functions//////////////////////////////////////
 
 /*
-* If user connects the playercount + 1 and maybe kick RoundEndBlockers
+* make sure everything is back to default, playernumber+1, maybe kick bots
 */
-public client_putinserver(id)
+public client_connect(id)
 {
+	g_primary[id-1] = M4A1;
+	g_secondary[id-1] = DEAGLE;
+	g_remember[id-1] = false;
+	g_hasWeapons[id-1] = false;
+	g_firstTeamJoin[id-1] = true;
 	g_players++;
 	if(g_botnum > 0 && g_players > g_botKickNumber)
 	{
@@ -226,14 +251,7 @@ public client_putinserver(id)
 */
 public client_disconnect(id)
 {
-	if(id <= 32)
-	{
-		g_primary[id-1] = M4A1;
-		g_secondary[id-1] = DEAGLE;
-		g_remember[id-1] = false;
-		g_firstTeamJoin[id-1] = true;
-		g_players--;
-	}
+	g_players--;
 }
 
 /*
@@ -253,14 +271,6 @@ public plugin_pause()
 }
 
 /////////////////////////////////////EventHandling Functions//////////////////////////////////////
-
-/*
-* prevents Messages
-*/
-public blockMessage(msg_id, msg_dest, msg_entity)
-{
-	return PLUGIN_HANDLED;
-}
 
 /*
 * prevents commands
@@ -313,9 +323,9 @@ public playerSpawned(id)
 	}
 	if(is_user_alive(id) && id <= 32)
 	{
+		g_hasWeapons[id-1] = false;
 		set_task(0.1,"startGodMode",id);
 		set_task(g_godModeTime+0.1,"stopGodMode",id);
-		setNewOrigin(id);
 		if(!is_user_bot(id) && !g_remember[id-1])
 		{
 			new menu,keys;
@@ -332,51 +342,13 @@ public playerSpawned(id)
 			//Bots get standard Weapons, and if g_remember == true players get the last weapons they selected
 			giveWeapons(id);
 		}
-	}	
-}
-
-/////////////////////////////////////Custom Spawn Functions//////////////////////////////////////
-
-/*
-* spawns the player on the CSDM spawns if available
-*/
-public setNewOrigin(id)
-{
-	if(g_origins > 0 && id <= 32)
-	{
-		//origins-1 -> origins+1 when creating new origin
-		new num = random_num(0,g_origins-1);
-		engfunc(EngFunc_SetOrigin, id, g_origin[num]);
-		//set_es(0,ES_Angles,angle[num]);
-		entity_set_vector(id, EV_VEC_angles, g_angle[num]);
-	}
-}
-
-/*
-* creates a spawn and makes the last created spawn glow
-*/
-public createSpawn(id)
-{
-	if(g_origins < 62 && is_user_admin(id))
-	{
-		entity_get_vector(id, EV_VEC_origin, g_origin[g_origins]);
-		entity_get_vector(id, EV_VEC_angles, g_angle[g_origins]);
-		
-		if(g_origins > 0)
+		if(callfunc_begin("spawn_Preset","csdm_spawn_preset.amxx") == 1)
 		{
-			unglow(g_iEnt[g_origins-1]);
+			callfunc_push_int(id);
+			callfunc_push_int(1);
+			callfunc_end();
 		}
-		
-		g_iEnt[g_origins] = create_entity("info_target" );
-		entity_set_model(g_iEnt[g_origins],"models/player/gign/gign.mdl");
-		engfunc(EngFunc_SetOrigin, g_iEnt[g_origins], g_origin[g_origins]);
-		entity_set_vector(g_iEnt[g_origins], EV_VEC_angles, g_angle[g_origins]);
-		
-		glow(g_iEnt[g_origins],{0,255,0},255);
-		
-		g_origins++;
-	}
-	return PLUGIN_CONTINUE;
+	}	
 }
 
 /////////////////////////////////////RoundendBlocker Functions//////////////////////////////////////
@@ -390,14 +362,16 @@ public kickBots()
 {
 	if(g_bots[0] && is_user_connected(g_bots[0]))
 	{
-		server_print("[CSDM - RoundEndBlocker] Kicking bot!");
+		server_print("[CSDMsake - RoundEndBlocker] Kicking bot!");
 		server_cmd("kick #%d", get_user_userid(g_bots[0]));
+		g_bots[0] = -1;
 		g_botnum--;
 	}
-	else if(g_bots[1] && is_user_connected(g_bots[1]))
+	if(g_bots[1] && is_user_connected(g_bots[1]))
 	{
-		server_print("[CSDM - RoundEndBlocker] Kicking bot!");
+		server_print("[CSDMsake - RoundEndBlocker] Kicking bot!");
 		server_cmd("kick #%d", get_user_userid(g_bots[1]));
+		g_bots[1] = -1;
 		g_botnum--;
 	}
 }
@@ -411,7 +385,7 @@ public createBot()
 	bot = engfunc(EngFunc_CreateFakeClient, g_names[g_botnum]);
 	if(!bot) 
 	{
-		server_print("[CSDM - RoundEndblocker] Error!");
+		server_print("[CSDMsake - RoundEndblocker] Error!");
 		g_failCount++;
 		if(g_failCount > 4)
 		{
@@ -424,14 +398,14 @@ public createBot()
 	dllfunc(DLLFunc_ClientConnect, bot, g_names[g_botnum], "127.0.0.1", ptr);
 	if(!is_user_connected(bot)) 
 	{
-		server_print("[CSDM - RoundEndblocker] Error: %s", ptr);
+		server_print("[CSDMsake - RoundEndblocker] Error: %s", ptr);
 		return;
 	}
 	dllfunc(DLLFunc_ClientPutInServer, bot);
 	set_pev(bot, pev_spawnflags, pev(bot, pev_spawnflags) | FL_FAKECLIENT);
 	set_pev(bot, pev_flags, pev(bot, pev_flags) | FL_FAKECLIENT);
 	cs_set_user_team(bot, g_botnum % 2 ? CS_TEAM_T : CS_TEAM_CT);
-	server_print("[CSDM - RoundEndblocker] ^"%s^" has been created.", g_names[g_botnum]);
+	server_print("[CSDMsake - RoundEndblocker] ^"%s^" has been created.", g_names[g_botnum]);
 	g_bots[g_botnum++] = bot;
 	g_failCount = 0;
 }
@@ -459,7 +433,7 @@ public hideBot(bot)
 */
 public glow(id, color[3],amt)
 {
-	fm_set_user_rendering(id,kRenderFxGlowShell,color[0],color[1],color[2],kRenderNormal,amt);
+	set_user_rendering(id,kRenderFxGlowShell,color[0],color[1],color[2],kRenderNormal,amt);
 }
 
 /*
@@ -467,7 +441,7 @@ public glow(id, color[3],amt)
 */
 public unglow(id)
 {
-	fm_set_user_rendering(id,kRenderFxNone,0,0,0,kRenderNormal,0);
+	set_user_rendering(id,kRenderFxNone,0,0,0,kRenderNormal,0);
 }
 
 
@@ -476,7 +450,7 @@ public unglow(id)
 */
 public startGodMode(id)
 {
-	if(!is_user_alive(id) || id > 32)
+	if(!is_user_alive(id))
 	{
 		return;
 	}
@@ -496,7 +470,7 @@ public startGodMode(id)
 */
 public stopGodMode(id)
 {
-	if(!is_user_connected(id) || id > 32)
+	if(!is_user_connected(id))
 	{
 		return;
 	}
@@ -511,18 +485,7 @@ public stopGodMode(id)
 */
 public mainMenuHandle(id, menu ,item)
 {
-	if(id > 32 || item == MENU_EXIT)
-	{
-		menu_display(id,g_menu_main,0);
-		return PLUGIN_HANDLED;
-	}
-	
-	new data[6], szName[64];
-	new access, callback;
-	
-	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
-	
-	switch(str_to_num(data))
+	switch(item)
 	{
 		case 0:
 		{
@@ -536,8 +499,7 @@ public mainMenuHandle(id, menu ,item)
 		{
 			g_remember[id-1] = true;
 			giveWeapons(id);
-			set_hudmessage(255, 0, 0, -1.0, 0.30, 0, 3.0, 6.0);
-			show_hudmessage(id,"To re-enable the menu say /guns");
+			client_print(id,print_chat,"%s To re-enable the menu say /guns", PLUGIN_IDENTIFIER);
 		}
 	}
 	return PLUGIN_HANDLED;
@@ -548,17 +510,13 @@ public mainMenuHandle(id, menu ,item)
 */
 public primaryWeaponPicked(id, menu, item)
 {
-	if(id > 32 || item == MENU_EXIT)
+	if(item == MENU_EXIT)
 	{
-		menu_display(id,g_menu_prim,0);
+		menu_display(id,g_menu_main,0);
 		return PLUGIN_HANDLED;
 	}
 	
-	new data[6], szName[64];
-	new access, callback;
-	
-	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
-	g_primary[id-1] = PrimaryWeapon:str_to_num(data);
+	g_primary[id-1] = PrimaryWeapon:item
 	
 	//display the secondary weapons menu
 	menu_display(id,g_menu_sec,0);
@@ -570,17 +528,13 @@ public primaryWeaponPicked(id, menu, item)
 */
 public secondaryWeaponPicked(id, menu, item)
 {
-	if(id > 32 || item == MENU_EXIT)
+	if(item == MENU_EXIT)
 	{
-		menu_display(id,g_menu_sec,0);
+		menu_display(id,g_menu_main,0);
 		return PLUGIN_HANDLED;
 	}
 	
-	new data[6], szName[64];
-	new access, callback;
-	
-	menu_item_getinfo(menu, item, access, data,charsmax(data), szName,charsmax(szName), callback);
-	g_secondary[id-1] = SecondaryWeapon:str_to_num(data);
+	g_secondary[id-1] = SecondaryWeapon:item;
 	
 	giveWeapons(id);
 	return PLUGIN_HANDLED;
@@ -591,13 +545,18 @@ public secondaryWeaponPicked(id, menu, item)
 */
 public reenableMenu(id)
 {
-	if(id > 32)
+	g_remember[id-1] = false;
+	if(g_hasWeapons[id-1])
 	{
+		client_print(id,print_chat,"%s Weapon menu re-enabled on next respawn!", PLUGIN_IDENTIFIER);
 		return PLUGIN_CONTINUE;
 	}
-	g_remember[id-1] = false;
-	set_hudmessage(255, 0, 0, -1.0, 0.30, 0, 3.0, 6.0);
-	show_hudmessage(id,"Weapon menu re-enabled on next respawn!");
+	new menu, keys;
+	get_user_menu(id,menu,keys);
+	if(menu == 0)
+	{
+		menu_display(id,g_menu_main,0);
+	}
 	return PLUGIN_CONTINUE;
 }
 
@@ -608,23 +567,22 @@ public reenableMenu(id)
 */
 public giveWeapons(id)
 {
-	if(id <= 32 && is_user_alive(id) && pev(id,pev_weapons))
+	if(is_user_alive(id))
 	{
-		fm_strip_user_weapons(id);
+		strip_user_weapons(id);
 		cs_set_user_armor(id,100,CS_ARMOR_VESTHELM);
 		
 		//give the user the primary weapon he has chosen
 		fm_give_item(id,g_weapon_name_prim[g_primary[id-1]]);
-		//ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_prim[g_primary[id-1]], 200);
 		
 		//give the user the secondary weapon he has chosen
 		fm_give_item(id,g_weapon_name_sec[g_secondary[id-1]]);
-		//ExecuteHam(Ham_GiveAmmo, id, 200, g_weapon_ammo_sec[g_secondary[id-1]], 200);
 		
 		//give the user his knife back
 		fm_give_item(id,"weapon_knife");	
 		
 		giveAmmo(id);
+		g_hasWeapons[id-1] = true;
 	}
 }
 
@@ -633,8 +591,8 @@ public giveWeapons(id)
 */
 public giveAmmo(id)
 {
-	OrpheuCallSuper(g_giveAmmo,id,200,g_weapon_ammo_prim[g_primary[id-1]],200);
-	OrpheuCallSuper(g_giveAmmo,id,200,g_weapon_ammo_sec[g_secondary[id-1]],200);
+	ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo_prim[g_primary[id-1]],200);
+	ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo_sec[g_secondary[id-1]],200);
 }
 
 /*
@@ -648,8 +606,7 @@ public spawnPlayer(id)
 	if (!is_user_connected(id) 
 	|| is_user_alive(id) 
 	|| cs_get_user_team(id) == CS_TEAM_SPECTATOR 
-	|| cs_get_user_team(id) == CS_TEAM_UNASSIGNED
-	|| id >32)
+	|| cs_get_user_team(id) == CS_TEAM_UNASSIGNED)
 	{   
 		return;
 	}
@@ -672,7 +629,7 @@ public spawnPlayer(id)
 */
 public killUser(id)
 {
-	if(is_user_alive(id) && id <= 32)
+	if(is_user_alive(id))
 	{
 		user_kill(id);
 	}
@@ -684,15 +641,9 @@ public killUser(id)
 */
 public respawnPlayer(id)
 {
-	if(id > 32)
-	{
-		return PLUGIN_CONTINUE;
-	}
 	new CsTeams:team = cs_get_user_team(id);
 	if(team == CS_TEAM_CT || team == CS_TEAM_T)
 	{
-		set_hudmessage(255, 0, 0, -1.0, 0.30, 0, 3.0, 6.0);
-		show_hudmessage(id,"respawning...!");
 		set_task(0.5,"killUser",id);
 	}
 	return PLUGIN_CONTINUE;
@@ -704,7 +655,7 @@ public respawnPlayer(id)
 public teamAssigned()
 {
 	new id = read_data(1);
-	if(id > 32 || id == g_bots[0] || id == g_bots[1])
+	if(id == g_bots[0] || id == g_bots[1])
 	{
 		return;
 	}
@@ -726,7 +677,7 @@ public teamAssigned()
 			{
 				if(!g_firstTeamJoin[id-1])
 				{
-					dllfunc(DLLFunc_Spawn,id);
+					dllfunc(DLLFunc_Spawn, id);
 					g_firstTeamJoin[id-1] = true;
 				}
 				else
