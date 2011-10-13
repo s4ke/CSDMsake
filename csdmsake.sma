@@ -1,5 +1,19 @@
 /*
-* CSDMsake
+* CSDMsake - CSDM for CS 1.5
+    Copyright (C) 2011 sake
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <amxmisc>
@@ -10,8 +24,19 @@
 
 #define PLUGIN	"csdmsake"
 #define PLUGIN_IDENTIFIER "[CSDMsake]" 
+
+#define ANNOUNCE_TIME 5.0
+#define WEBSITE "http://csdmsake.dyndns.org/"
+
+#define COLOR_T {255,0,0}
+#define COLOR_CT {0,0,255}
+
+#define BOT_ORIGIN Float:{9999.0, 9999.0, 9999.0}
+
+#define RESPAWN_TIME 0.5
+
 #define AUTHOR	"sake"
-#define VERSION	"1.0"
+#define VERSION	"1.1"
 
 #define key_all      MENU_KEY_0 | MENU_KEY_1 | MENU_KEY_2 | MENU_KEY_3 | MENU_KEY_4 | MENU_KEY_5 | MENU_KEY_6 | MENU_KEY_7 | MENU_KEY_8 | MENU_KEY_9
 
@@ -152,6 +177,7 @@ public plugin_init()
 initVars()
 {
 	sv_godmodetime = register_cvar("sv_godmodetime","1.5",FCVAR_SERVER);
+	register_cvar("csdmsake_version", VERSION, FCVAR_SERVER|FCVAR_SPONLY)
 	g_godModeTime = get_pcvar_float(sv_godmodetime);
 	g_maxPlayers = get_maxplayers();
 }
@@ -301,7 +327,7 @@ public roundEnd()
 public playerKilled()
 {
 	new victim = read_data(2);
-	set_task(0.5,"spawnPlayer",victim);
+	set_task(RESPAWN_TIME,"spawnPlayer",victim);
 	return PLUGIN_CONTINUE;
 }
 
@@ -335,6 +361,10 @@ public playerSpawned(id)
 			{
 				//show the Menu for the Weapons
 				menu_display(id,g_menu_main,0);
+			}
+			else
+			{
+				client_print(id,print_chat,"%s Another menu is being displayed, say /guns again after the menu has closed!", PLUGIN_IDENTIFIER);	
 			}
 		}
 		else
@@ -418,7 +448,7 @@ public hideBot(bot)
 	set_pev(bot, pev_effects, pev(bot, pev_effects) | EF_NODRAW);
 	set_pev(bot, pev_solid, SOLID_NOT);
 	set_pev(bot, pev_takedamage, DAMAGE_NO);
-	engfunc(EngFunc_SetOrigin, bot, Float:{9999.0, 9999.0, 9999.0});
+	engfunc(EngFunc_SetOrigin, bot, BOT_ORIGIN);
 	new msgTeamInfo = get_user_msgid("TeamInfo");
 	message_begin(MSG_ALL, msgTeamInfo);
 	write_byte(bot);
@@ -431,7 +461,7 @@ public hideBot(bot)
 /*
 * lets entities glow in a defined color
 */
-public glow(id, color[3],amt)
+public glow(id, color[3], amt)
 {
 	set_user_rendering(id,kRenderFxGlowShell,color[0],color[1],color[2],kRenderNormal,amt);
 }
@@ -457,11 +487,11 @@ public startGodMode(id)
 	fm_set_user_godmode(id,1);
 	if(get_user_team(id) == 1)
 	{
-		glow(id,{255,0,0},25);
+		glow(id,COLOR_T,25);
 	}
 	if(get_user_team(id) == 2)
 	{
-		glow(id,{0,0,255},25);
+		glow(id,COLOR_CT,25);
 	}
 }
 
@@ -679,6 +709,7 @@ public teamAssigned()
 				{
 					dllfunc(DLLFunc_Spawn, id);
 					g_firstTeamJoin[id-1] = true;
+					set_task(ANNOUNCE_TIME, "announce", id);
 				}
 				else
 				{
@@ -691,5 +722,16 @@ public teamAssigned()
 				g_firstTeamJoin[id-1] = true;
 			}
 		}
+	}
+}
+
+/*
+* Announce Plugin info if player is still connected
+*/
+public announce(id)
+{
+	if(is_user_connected(id))
+	{
+		client_print(id,print_chat,"%s CSDMsake %s has been developed by sake, visit %s for more info!", PLUGIN_IDENTIFIER, VERSION, WEBSITE);
 	}
 }
