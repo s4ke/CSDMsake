@@ -36,7 +36,7 @@
 #define RESPAWN_TIME 0.5
 
 #define AUTHOR	"sake"
-#define VERSION	"1.1"
+#define VERSION	"1.1a"
 
 #define key_all      MENU_KEY_0 | MENU_KEY_1 | MENU_KEY_2 | MENU_KEY_3 | MENU_KEY_4 | MENU_KEY_5 | MENU_KEY_6 | MENU_KEY_7 | MENU_KEY_8 | MENU_KEY_9
 
@@ -281,6 +281,14 @@ public client_disconnect(id)
 }
 
 /*
+* Do some advertising some time after the client has been put in the server.
+*/
+public client_putinserver(id)
+{
+	set_task(ANNOUNCE_TIME, "announce", id);
+}
+
+/*
 * Kick all bots at the end of the map
 */
 public plugin_end()
@@ -362,7 +370,7 @@ public playerSpawned(id)
 				//show the Menu for the Weapons
 				menu_display(id,g_menu_main,0);
 			}
-			else
+			else if(!(menu == g_menu_main || menu == g_menu_prim || g_menu_sec))
 			{
 				client_print(id,print_chat,"%s Another menu is being displayed, say /guns again after the menu has closed!", PLUGIN_IDENTIFIER);	
 			}
@@ -709,7 +717,6 @@ public teamAssigned()
 				{
 					dllfunc(DLLFunc_Spawn, id);
 					g_firstTeamJoin[id-1] = true;
-					set_task(ANNOUNCE_TIME, "announce", id);
 				}
 				else
 				{
