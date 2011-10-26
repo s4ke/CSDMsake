@@ -36,9 +36,18 @@
 #define RESPAWN_TIME 0.5
 
 #define AUTHOR	"sake"
-#define VERSION	"1.1a"
+#define VERSION	"1.1b"
 
 #define key_all      MENU_KEY_0 | MENU_KEY_1 | MENU_KEY_2 | MENU_KEY_3 | MENU_KEY_4 | MENU_KEY_5 | MENU_KEY_6 | MENU_KEY_7 | MENU_KEY_8 | MENU_KEY_9
+
+#define PRIMARY_WEAPON_COUNT 16
+#define SECONDARY_WEAPON_COUNT 6
+
+#define DEFAULT_GODMODETIME "1.5"
+#define DEFAULT_WEAPONS "4194303"
+
+#define NOWEAPON_PRIM PrimaryWeapon:999
+#define NOWEAPON_SEC  SecondaryWeapon:999
 
 enum PrimaryWeapon
 {
@@ -79,6 +88,26 @@ new const g_weapon_name_prim[PrimaryWeapon][] =
 	"weapon_g3sg1",
 	"weapon_sg550"
 };
+
+new const g_weapon_display_name_prim[PrimaryWeapon][] = 
+{
+	"M4A1",
+	"AK-47",
+	"SG552",
+	"AUG",
+	"M3",
+	"MP5",
+	"PARA",
+	"AWP",
+	"Scout",
+	"P90",
+	"XM1014",
+	"Mac10",
+	"UMP45",
+	"TMP",
+	"G3SG1",
+	"SG550"
+}
 
 new const g_weapon_ammo_prim[PrimaryWeapon][] =
 {
@@ -121,6 +150,16 @@ new const g_weapon_name_sec[SecondaryWeapon][] =
 	"weapon_p228"
 }
 
+new const g_weapon_display_name_sec[SecondaryWeapon][] =
+{
+	"Desert Eagle",
+	"USP",
+	"Glock18",
+	"Dual Elites",
+	"Five-Seven",
+	"P228"
+}
+
 new const g_weapon_ammo_sec[SecondaryWeapon][] =
 {
 	"50ae",
@@ -132,14 +171,19 @@ new const g_weapon_ammo_sec[SecondaryWeapon][] =
 }
 
 //vars for weapons
-new PrimaryWeapon:g_primary[32] = M4A1;
-new SecondaryWeapon:g_secondary[32] = DEAGLE;
+new PrimaryWeapon:g_primary[32] = NOWEAPON_PRIM;
+new SecondaryWeapon:g_secondary[32] = NOWEAPON_SEC
 new bool:g_remember[32];
 new bool:g_hasWeapons[32];
 
-//pointer vor CVAR for spawnprotection
+//pointer for CVAR for spawnprotection
 new sv_godmodetime;
-new Float:g_godModeTime;
+
+//pointer for CVAR for Weapon-banning
+new sv_weapons;
+
+new g_banned_count_prim;
+new g_banned_count_sec;
 
 //vars for RoundEndBlocking
 new g_botnum = 0;
@@ -176,44 +220,51 @@ public plugin_init()
 
 initVars()
 {
-	sv_godmodetime = register_cvar("sv_godmodetime","1.5",FCVAR_SERVER);
+	sv_godmodetime = register_cvar("sv_godmodetime", DEFAULT_GODMODETIME ,FCVAR_SERVER);
+	sv_weapons = register_cvar("sv_weapons", DEFAULT_WEAPONS , FCVAR_SERVER);
 	register_cvar("csdmsake_version", VERSION, FCVAR_SERVER|FCVAR_SPONLY)
-	g_godModeTime = get_pcvar_float(sv_godmodetime);
 	g_maxPlayers = get_maxplayers();
 }
 
 initMenus()
 {
+	//Main Menu Initialization
 	g_menu_main = menu_create("Weapon Main Menu","mainMenuHandle");
 	menu_additem(g_menu_main,"New Weapons");
 	menu_additem(g_menu_main,"Last Weapons");
-	menu_additem(g_menu_main,"Remember Weapons");
+	menu_additem(g_menu_main,"Remember Weapons");	
 	menu_setprop(g_menu_main, MPROP_EXIT, MEXIT_NEVER);
+	
+	//PrimaryWeapon Menu Initialization
+	new i = 0;
+	new allowed;
 	g_menu_prim = menu_create("Primary Weapons","primaryWeaponPicked");
-	menu_additem(g_menu_prim,"M4A1");
-	menu_additem(g_menu_prim,"AK-47");
-	menu_additem(g_menu_prim,"SG552");
-	menu_additem(g_menu_prim,"AUG");
-	menu_additem(g_menu_prim,"M3");
-	menu_additem(g_menu_prim,"MP5");
-	menu_additem(g_menu_prim,"PARA");
-	menu_additem(g_menu_prim,"AWP");
-	menu_additem(g_menu_prim,"Scout");
-	menu_additem(g_menu_prim,"P90");
-	menu_additem(g_menu_prim,"XM1014");
-	menu_additem(g_menu_prim,"Mac10");
-	menu_additem(g_menu_prim,"UMP45");
-	menu_additem(g_menu_prim,"TMP");
-	menu_additem(g_menu_prim,"G3SG1");
-	menu_additem(g_menu_prim,"SG550");
+	new weapons = get_pcvar_num(sv_weapons);
+	do
+	{
+		allowed = weapons & (1<<i);
+		menu_additem(g_menu_prim,g_weapon_display_name_prim[PrimaryWeapon:i], "", allowed ? 0 : -1);
+		if(!allowed)
+		{
+			++g_banned_count_prim;
+		}
+		++i;
+	} while(i < PRIMARY_WEAPON_COUNT);
 	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
+	
+	//SecondaryWeapon Menu Initialization
+	i = 0;
 	g_menu_sec = menu_create("Secondary Weapons","secondaryWeaponPicked");
-	menu_additem(g_menu_sec,"Desert Eagle");
-	menu_additem(g_menu_sec,"USP");
-	menu_additem(g_menu_sec,"Glock18");
-	menu_additem(g_menu_sec,"Dual Elites");
-	menu_additem(g_menu_sec,"Five-Seven");
-	menu_additem(g_menu_sec,"P228");
+	do
+	{
+		allowed = weapons & (1<<i+PRIMARY_WEAPON_COUNT);
+		menu_additem(g_menu_sec,g_weapon_display_name_sec[SecondaryWeapon:i], "", allowed ? 0 : -1);
+		if(!allowed)
+		{
+			++g_banned_count_sec;
+		}
+		++i;
+	} while(i < SECONDARY_WEAPON_COUNT);
 	menu_setprop(g_menu_sec, MPROP_EXIT, MEXIT_ALL);
 }
 
@@ -260,8 +311,8 @@ registerClCommands()
 */
 public client_connect(id)
 {
-	g_primary[id-1] = M4A1;
-	g_secondary[id-1] = DEAGLE;
+	g_primary[id-1] = NOWEAPON_PRIM;
+	g_secondary[id-1] = NOWEAPON_SEC;
 	g_remember[id-1] = false;
 	g_hasWeapons[id-1] = false;
 	g_firstTeamJoin[id-1] = true;
@@ -269,6 +320,11 @@ public client_connect(id)
 	if(g_botnum > 0 && g_players > g_botKickNumber)
 	{
 		kickBots();
+	}
+	if(is_user_bot(id))
+	{
+		g_primary[id-1] = M4A1;
+		g_secondary[id-1] = DEAGLE;
 	}
 }
 
@@ -278,14 +334,6 @@ public client_connect(id)
 public client_disconnect(id)
 {
 	g_players--;
-}
-
-/*
-* Do some advertising some time after the client has been put in the server.
-*/
-public client_putinserver(id)
-{
-	set_task(ANNOUNCE_TIME, "announce", id);
 }
 
 /*
@@ -359,7 +407,7 @@ public playerSpawned(id)
 	{
 		g_hasWeapons[id-1] = false;
 		set_task(0.1,"startGodMode",id);
-		set_task(g_godModeTime+0.1,"stopGodMode",id);
+		set_task(get_pcvar_float(sv_godmodetime)+0.1,"stopGodMode",id);
 		if(!is_user_bot(id) && !g_remember[id-1])
 		{
 			new menu,keys;
@@ -527,14 +575,37 @@ public mainMenuHandle(id, menu ,item)
 	{
 		case 0:
 		{
+			if(g_banned_count_prim == PRIMARY_WEAPON_COUNT)
+			{
+				if(g_banned_count_sec < SECONDARY_WEAPON_COUNT)
+				{
+					menu_display(id, g_menu_sec, 0);
+					return PLUGIN_HANDLED;
+				}
+				client_print(id, print_chat,"%s No Weapons available!", PLUGIN_IDENTIFIER);
+				g_remember[id-1] = true;
+				return PLUGIN_HANDLED;
+			}
 			menu_display(id,g_menu_prim,0);
 		}
 		case 1:
 		{
+			if(g_primary[id-1] == NOWEAPON_PRIM && g_secondary[id-1] == NOWEAPON_SEC)
+			{
+				client_print(id, print_chat,"%s No Weapons to reuse!", PLUGIN_IDENTIFIER);
+				menu_display(id,g_menu_main,0);
+				return PLUGIN_HANDLED;
+			}
 			giveWeapons(id);
 		}
 		case 2:
 		{
+			if(g_primary[id-1] == NOWEAPON_PRIM && g_secondary[id-1] == NOWEAPON_SEC)
+			{
+				client_print(id, print_chat,"%s No Weapons to remember!", PLUGIN_IDENTIFIER);
+				menu_display(id,g_menu_main,0);
+				return PLUGIN_HANDLED;
+			}
 			g_remember[id-1] = true;
 			giveWeapons(id);
 			client_print(id,print_chat,"%s To re-enable the menu say /guns", PLUGIN_IDENTIFIER);
@@ -556,8 +627,11 @@ public primaryWeaponPicked(id, menu, item)
 	
 	g_primary[id-1] = PrimaryWeapon:item
 	
-	//display the secondary weapons menu
-	menu_display(id,g_menu_sec,0);
+	//display the secondary weapons menu if possible
+	if(g_banned_count_sec < SECONDARY_WEAPON_COUNT)
+	{
+		menu_display(id, g_menu_sec, 0);
+	}
 	return PLUGIN_HANDLED;
 }
 
@@ -611,10 +685,12 @@ public giveWeapons(id)
 		cs_set_user_armor(id,100,CS_ARMOR_VESTHELM);
 		
 		//give the user the primary weapon he has chosen
-		fm_give_item(id,g_weapon_name_prim[g_primary[id-1]]);
+		if(isValidPrim(g_primary[id-1]))
+			fm_give_item(id,g_weapon_name_prim[g_primary[id-1]]);
 		
 		//give the user the secondary weapon he has chosen
-		fm_give_item(id,g_weapon_name_sec[g_secondary[id-1]]);
+		if(isValidSec(g_secondary[id-1]))
+			fm_give_item(id,g_weapon_name_sec[g_secondary[id-1]]);
 		
 		//give the user his knife back
 		fm_give_item(id,"weapon_knife");	
@@ -629,8 +705,20 @@ public giveWeapons(id)
 */
 public giveAmmo(id)
 {
-	ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo_prim[g_primary[id-1]],200);
-	ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo_sec[g_secondary[id-1]],200);
+	if(isValidPrim(g_primary[id-1]))
+		ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo_prim[g_primary[id-1]],200);
+	if(isValidSec(g_secondary[id-1]))
+		ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo_sec[g_secondary[id-1]],200);
+}
+
+bool:isValidPrim(PrimaryWeapon:num)
+{
+	return num != NOWEAPON_PRIM;
+}
+
+bool:isValidSec(SecondaryWeapon:num)
+{
+	return num != NOWEAPON_SEC;
 }
 
 /*
@@ -722,6 +810,7 @@ public teamAssigned()
 				{
 					g_firstTeamJoin[id-1] = false;
 				}
+				set_task(ANNOUNCE_TIME, "announce", id);
 			}
 			
 			default:
