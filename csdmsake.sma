@@ -1,20 +1,22 @@
 /*
 * CSDMsake - CSDM for CS 1.5
-    Copyright (C) 2011 sake
+Copyright (C) 2011 sake
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+//TODO: Resetting variables via extra function because of multiple usage!!!
 
 #include <amxmisc>
 #include <cstrike>
@@ -36,20 +38,20 @@
 #define RESPAWN_TIME 0.5
 
 #define AUTHOR	"sake"
-#define VERSION	"1.1b"
+#define VERSION	"1.1d"
 
 #define key_all      MENU_KEY_0 | MENU_KEY_1 | MENU_KEY_2 | MENU_KEY_3 | MENU_KEY_4 | MENU_KEY_5 | MENU_KEY_6 | MENU_KEY_7 | MENU_KEY_8 | MENU_KEY_9
 
 #define PRIMARY_WEAPON_COUNT 16
 #define SECONDARY_WEAPON_COUNT 6
+#define TOTAL_WEAPON_COUNT PRIMARY_WEAPON_COUNT + SECONDARY_WEAPON_COUNT
 
 #define DEFAULT_GODMODETIME "1.5"
 #define DEFAULT_WEAPONS "4194303"
 
-#define NOWEAPON_PRIM PrimaryWeapon:999
-#define NOWEAPON_SEC  SecondaryWeapon:999
+#define NOWEAPON Weapon:999
 
-enum PrimaryWeapon
+enum Weapon
 {
 	M4A1,
 	AK47,
@@ -66,10 +68,16 @@ enum PrimaryWeapon
 	UMP45,
 	TMP,
 	G3SG1,
-	SG550
+	SG550,
+	DEAGLE,
+	USP,
+	GLOCK,
+	ELITE,
+	FIVESEVEN,
+	P228
 }
 
-new const g_weapon_name_prim[PrimaryWeapon][] =
+new const g_weapon_name[Weapon][] =
 {
 	"weapon_m4a1",
 	"weapon_ak47",
@@ -86,10 +94,16 @@ new const g_weapon_name_prim[PrimaryWeapon][] =
 	"weapon_ump45",
 	"weapon_tmp",
 	"weapon_g3sg1",
-	"weapon_sg550"
+	"weapon_sg550",
+	"weapon_deagle",
+	"weapon_usp",
+	"weapon_glock18",
+	"weapon_elite",
+	"weapon_fiveseven",
+	"weapon_p228"
 };
 
-new const g_weapon_display_name_prim[PrimaryWeapon][] = 
+new const g_weapon_display_name[Weapon][] = 
 {
 	"M4A1",
 	"AK-47",
@@ -106,10 +120,16 @@ new const g_weapon_display_name_prim[PrimaryWeapon][] =
 	"UMP45",
 	"TMP",
 	"G3SG1",
-	"SG550"
+	"SG550",
+	"Desert Eagle",
+	"USP",
+	"Glock18",
+	"Dual Elites",
+	"Five-Seven",
+	"P228"
 }
 
-new const g_weapon_ammo_prim[PrimaryWeapon][] =
+new const g_weapon_ammo[Weapon][] =
 {
 	"556nato",
 	"762nato",
@@ -126,53 +146,18 @@ new const g_weapon_ammo_prim[PrimaryWeapon][] =
 	"45acp",
 	"9mm",
 	"762nato",
-	"556nato"
-};
-
-enum SecondaryWeapon
-{
-	DEAGLE,
-	USP,
-	GLOCK,
-	ELITE,
-	FIVESEVEN,
-	P228
-}
-
-
-new const g_weapon_name_sec[SecondaryWeapon][] =
-{
-	"weapon_deagle",
-	"weapon_usp",
-	"weapon_glock18",
-	"weapon_elite",
-	"weapon_fiveseven",
-	"weapon_p228"
-}
-
-new const g_weapon_display_name_sec[SecondaryWeapon][] =
-{
-	"Desert Eagle",
-	"USP",
-	"Glock18",
-	"Dual Elites",
-	"Five-Seven",
-	"P228"
-}
-
-new const g_weapon_ammo_sec[SecondaryWeapon][] =
-{
+	"556nato",
 	"50ae",
 	"45acp",
 	"9mm",
 	"9mm",
 	"57mm",
 	"357sig"
-}
+};
 
 //vars for weapons
-new PrimaryWeapon:g_primary[32] = NOWEAPON_PRIM;
-new SecondaryWeapon:g_secondary[32] = NOWEAPON_SEC
+new Weapon:g_primary[32] = NOWEAPON;
+new Weapon:g_secondary[32] = NOWEAPON;
 new bool:g_remember[32];
 new bool:g_hasWeapons[32];
 
@@ -181,11 +166,12 @@ new sv_godmodetime;
 
 //pointer for CVAR for Weapon-banning
 new sv_weapons;
+new g_weapons = 0;
 
 new g_banned_count_prim;
 new g_banned_count_sec;
 
-//vars for RoundEndBlocking
+//vars/constants for RoundEndBlocking
 new g_botnum = 0;
 new g_bots[2];
 new g_failCount = 0;
@@ -222,8 +208,10 @@ initVars()
 {
 	sv_godmodetime = register_cvar("sv_godmodetime", DEFAULT_GODMODETIME ,FCVAR_SERVER);
 	sv_weapons = register_cvar("sv_weapons", DEFAULT_WEAPONS , FCVAR_SERVER);
+	g_weapons = get_pcvar_num(sv_weapons);
 	register_cvar("csdmsake_version", VERSION, FCVAR_SERVER|FCVAR_SPONLY)
 	g_maxPlayers = get_maxplayers();
+	
 }
 
 initMenus()
@@ -235,37 +223,49 @@ initMenus()
 	menu_additem(g_menu_main,"Remember Weapons");	
 	menu_setprop(g_menu_main, MPROP_EXIT, MEXIT_NEVER);
 	
+	new callback_prim = menu_makecallback("primaryMenuCallback");
+	new callback_sec  = menu_makecallback("secondaryMenuCallback");
+	
 	//PrimaryWeapon Menu Initialization
 	new i = 0;
-	new allowed;
 	g_menu_prim = menu_create("Primary Weapons","primaryWeaponPicked");
-	new weapons = get_pcvar_num(sv_weapons);
 	do
 	{
-		allowed = weapons & (1<<i);
-		menu_additem(g_menu_prim,g_weapon_display_name_prim[PrimaryWeapon:i], "", allowed ? 0 : -1);
-		if(!allowed)
+		menu_additem(g_menu_prim,g_weapon_display_name[Weapon:i], "", 0, callback_prim);
+		if(!(g_weapons & (1<<i)))
 		{
 			++g_banned_count_prim;
 		}
 		++i;
 	} while(i < PRIMARY_WEAPON_COUNT);
-	menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
+	if(g_banned_count_prim < PRIMARY_WEAPON_COUNT)
+	{
+		menu_setprop(g_menu_prim, MPROP_EXIT, MEXIT_ALL);
+	}
+	else
+	{
+		menu_destroy(g_menu_sec);
+	}
 	
 	//SecondaryWeapon Menu Initialization
-	i = 0;
+	//Start at the first Secondary Weapon
+	i = PRIMARY_WEAPON_COUNT;
 	g_menu_sec = menu_create("Secondary Weapons","secondaryWeaponPicked");
 	do
 	{
-		allowed = weapons & (1<<i+PRIMARY_WEAPON_COUNT);
-		menu_additem(g_menu_sec,g_weapon_display_name_sec[SecondaryWeapon:i], "", allowed ? 0 : -1);
-		if(!allowed)
+		menu_additem(g_menu_sec,g_weapon_display_name[Weapon:i], "", 0, callback_sec);
+		if(!(g_weapons & (1<<i)))
 		{
 			++g_banned_count_sec;
 		}
 		++i;
 	} while(i < SECONDARY_WEAPON_COUNT);
-	menu_setprop(g_menu_sec, MPROP_EXIT, MEXIT_ALL);
+	if(g_banned_count_sec < SECONDARY_WEAPON_COUNT)
+	{
+		menu_setprop(g_menu_sec, MPROP_EXIT, MEXIT_ALL);
+		return;
+	}
+	menu_destroy(g_menu_sec);
 }
 
 registerSayCommands()
@@ -302,6 +302,8 @@ registerClCommands()
 	register_clcmd("buyequip", "blockCmd");
 	register_clcmd("buyammo1", "blockCmd");
 	register_clcmd("buyammo2", "blockCmd");
+	register_clcmd("amx_allow_weapon", "allowWeapon", ADMIN_ALL, "Allow CSDM Weapon for current map");
+	register_clcmd("amx_ban_weapon", "banWeapon", ADMIN_ALL, "Ban CSDM Weapon for current map");
 }
 
 /////////////////////////////////////Forwarded Functions//////////////////////////////////////
@@ -311,8 +313,8 @@ registerClCommands()
 */
 public client_connect(id)
 {
-	g_primary[id-1] = NOWEAPON_PRIM;
-	g_secondary[id-1] = NOWEAPON_SEC;
+	g_primary[id-1] = NOWEAPON;
+	g_secondary[id-1] = NOWEAPON;
 	g_remember[id-1] = false;
 	g_hasWeapons[id-1] = false;
 	g_firstTeamJoin[id-1] = true;
@@ -590,7 +592,7 @@ public mainMenuHandle(id, menu ,item)
 		}
 		case 1:
 		{
-			if(g_primary[id-1] == NOWEAPON_PRIM && g_secondary[id-1] == NOWEAPON_SEC)
+			if(g_primary[id-1] == NOWEAPON && g_secondary[id-1] == NOWEAPON)
 			{
 				client_print(id, print_chat,"%s No Weapons to reuse!", PLUGIN_IDENTIFIER);
 				menu_display(id,g_menu_main,0);
@@ -600,7 +602,7 @@ public mainMenuHandle(id, menu ,item)
 		}
 		case 2:
 		{
-			if(g_primary[id-1] == NOWEAPON_PRIM && g_secondary[id-1] == NOWEAPON_SEC)
+			if(g_primary[id-1] == NOWEAPON && g_secondary[id-1] == NOWEAPON)
 			{
 				client_print(id, print_chat,"%s No Weapons to remember!", PLUGIN_IDENTIFIER);
 				menu_display(id,g_menu_main,0);
@@ -625,14 +627,27 @@ public primaryWeaponPicked(id, menu, item)
 		return PLUGIN_HANDLED;
 	}
 	
-	g_primary[id-1] = PrimaryWeapon:item
+	g_primary[id-1] = Weapon:item
 	
 	//display the secondary weapons menu if possible
 	if(g_banned_count_sec < SECONDARY_WEAPON_COUNT)
 	{
 		menu_display(id, g_menu_sec, 0);
+		return PLUGIN_HANDLED;
 	}
+	
+	giveWeapons(id);
 	return PLUGIN_HANDLED;
+}
+
+public primaryMenuCallback(id, menu, item)
+{
+	return g_weapons & (1<<item) ? ITEM_ENABLED : ITEM_DISABLED;
+}
+
+public secondaryMenuCallback(id, menu, item)
+{
+	return g_weapons & (1<<item + PRIMARY_WEAPON_COUNT) ? ITEM_ENABLED : ITEM_DISABLED;
 }
 
 /*
@@ -646,7 +661,7 @@ public secondaryWeaponPicked(id, menu, item)
 		return PLUGIN_HANDLED;
 	}
 	
-	g_secondary[id-1] = SecondaryWeapon:item;
+	g_secondary[id-1] = Weapon:item;
 	
 	giveWeapons(id);
 	return PLUGIN_HANDLED;
@@ -685,12 +700,12 @@ public giveWeapons(id)
 		cs_set_user_armor(id,100,CS_ARMOR_VESTHELM);
 		
 		//give the user the primary weapon he has chosen
-		if(isValidPrim(g_primary[id-1]))
-			fm_give_item(id,g_weapon_name_prim[g_primary[id-1]]);
+		if(isValidWeapon(g_primary[id-1]))
+			fm_give_item(id,g_weapon_name[g_primary[id-1]]);
 		
 		//give the user the secondary weapon he has chosen
-		if(isValidSec(g_secondary[id-1]))
-			fm_give_item(id,g_weapon_name_sec[g_secondary[id-1]]);
+		if(isValidWeapon(g_secondary[id-1]))
+			fm_give_item(id,g_weapon_name[g_secondary[id-1]]);
 		
 		//give the user his knife back
 		fm_give_item(id,"weapon_knife");	
@@ -705,20 +720,15 @@ public giveWeapons(id)
 */
 public giveAmmo(id)
 {
-	if(isValidPrim(g_primary[id-1]))
-		ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo_prim[g_primary[id-1]],200);
-	if(isValidSec(g_secondary[id-1]))
-		ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo_sec[g_secondary[id-1]],200);
+	if(isValidWeapon(g_primary[id-1]))
+		ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo[g_primary[id-1]],200);
+	if(isValidWeapon(g_secondary[id-1]))
+		ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo[g_secondary[id-1]],200);
 }
 
-bool:isValidPrim(PrimaryWeapon:num)
+bool:isValidWeapon(Weapon:num)
 {
-	return num != NOWEAPON_PRIM;
-}
-
-bool:isValidSec(SecondaryWeapon:num)
-{
-	return num != NOWEAPON_SEC;
+	return num != NOWEAPON;
 }
 
 /*
