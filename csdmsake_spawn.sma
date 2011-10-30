@@ -13,21 +13,27 @@
  * 
  * Edited by sake
  * Just removed original CSDM dependencies and added
+ * extra functionality for proper spawnsounds.
  */
  
 #define	MAX_SPAWNS	60
+#define GUNPICKUP_SOUND "items/gunpickup2.wav"
+#define SND_CHANNEL 3
+#define SND_VOLUME 1.0
+#define SND_ATTENUATION 0.8
+#define SND_FLAG (1<<32)
+#define SND_PITCH 100
+
+//Tampering with the author and name lines will violate copyrights
+#define PLUGINNAME "CSDM Mod | csdmsake_spawn"
+#define VERSION "2.00 | 1.1d"
+#define AUTHORS "CSDM Team | sake"
 
 #include <amxmodx>
 #include <amxmisc>
 #include <engine>
 #include <hamsandwich>
 #include <fakemeta>
-
-//Tampering with the author and name lines will violate copyrights
-new PLUGINNAME[] = "CSDM Mod"
-new VERSION[] = "2.00 | 1.1d"
-new AUTHORS[] = "CSDM Team"
-
 
 new Float:g_SpawnVecs[MAX_SPAWNS][3];
 new Float:g_SpawnAngles[MAX_SPAWNS][3];
@@ -38,12 +44,18 @@ public plugin_init()
 {
 	register_plugin(PLUGINNAME,VERSION,AUTHORS);
 	registerHamHooks();
+	registerForwards();
 	readSpawns();
 }
 
 registerHamHooks()
 {
 	RegisterHam(Ham_Spawn, "player", "playerSpawned", 1);
+}
+
+registerForwards()
+{
+	register_forward(FM_EmitSound, "fm_emitSound");
 }
 
 public playerSpawned(id)
@@ -54,6 +66,17 @@ public playerSpawned(id)
 		return;
 	}
 	spawn_Preset(id,1);
+	//Play spawnsound.
+	engfunc(EngFunc_EmitSound, id, SND_CHANNEL, GUNPICKUP_SOUND, SND_VOLUME, SND_ATTENUATION, SND_FLAG, SND_PITCH);
+}
+
+public fm_emitSound(ent, iChannel, const szSample[], Float:fVolume, Float:fAttenuation, iFlags, iPitch)
+{
+	if(equal(szSample,GUNPICKUP_SOUND) && !(iFlags & SND_FLAG))
+	{
+		return FMRES_SUPERCEDE;
+	}
+	return FMRES_IGNORED;
 }
 
 readSpawns()
