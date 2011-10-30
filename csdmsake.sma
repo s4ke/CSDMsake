@@ -44,7 +44,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define PRIMARY_WEAPON_COUNT 16
 #define SECONDARY_WEAPON_COUNT 6
-#define TOTAL_WEAPON_COUNT PRIMARY_WEAPON_COUNT + SECONDARY_WEAPON_COUNT
+#define TOTAL_WEAPON_COUNT 22
 
 #define DEFAULT_GODMODETIME "1.5"
 #define DEFAULT_WEAPONS "4194303"
@@ -259,8 +259,8 @@ initMenus()
 			++g_banned_count_sec;
 		}
 		++i;
-	} while(i < SECONDARY_WEAPON_COUNT);
-	if(g_banned_count_sec < SECONDARY_WEAPON_COUNT)
+	} while(i < TOTAL_WEAPON_COUNT);
+	if(g_banned_count_sec < TOTAL_WEAPON_COUNT)
 	{
 		menu_setprop(g_menu_sec, MPROP_EXIT, MEXIT_ALL);
 		return;
@@ -645,11 +645,6 @@ public primaryMenuCallback(id, menu, item)
 	return g_weapons & (1<<item) ? ITEM_ENABLED : ITEM_DISABLED;
 }
 
-public secondaryMenuCallback(id, menu, item)
-{
-	return g_weapons & (1<<item + PRIMARY_WEAPON_COUNT) ? ITEM_ENABLED : ITEM_DISABLED;
-}
-
 /*
 * called after secondary weapons menu is closed. Gives weapon to player
 */
@@ -661,10 +656,15 @@ public secondaryWeaponPicked(id, menu, item)
 		return PLUGIN_HANDLED;
 	}
 	
-	g_secondary[id-1] = Weapon:item;
+	g_secondary[id-1] = Weapon:(item + PRIMARY_WEAPON_COUNT);
 	
 	giveWeapons(id);
 	return PLUGIN_HANDLED;
+}
+
+public secondaryMenuCallback(id, menu, item)
+{
+	return g_weapons & (1<<item + PRIMARY_WEAPON_COUNT) ? ITEM_ENABLED : ITEM_DISABLED;
 }
 
 /*
