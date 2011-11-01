@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define VERSION	"1.1d"
 #define PLUGIN	"csdmsake"
 #define PLUGIN_IDENTIFIER "[CSDMsake]" 
+#define PLUGIN_ROUNDENDBLOCKER "[CSDMsake - RoundEndblocker]"
 
 #define ANNOUNCE_TIME 5.0
 #define WEBSITE "http://csdmsake.dyndns.org/"
@@ -117,10 +118,20 @@ public client_connect(id)
 }
 
 /*
-* If user disconnects the weapon are set back to default
+* If user disconnects
 */
 public client_disconnect(id)
 {
+	if(id == g_bots[0])
+	{
+		g_bots[0] = -1;
+		--g_botnum;
+	}
+	else if(id == g_bots[1])
+	{
+		g_bots[1] = -1;
+		--g_botnum;
+	}
 	g_players--;
 }
 
@@ -241,15 +252,11 @@ public kickBots()
 	{
 		server_print("[CSDMsake - RoundEndBlocker] Kicking bot!");
 		server_cmd("kick #%d", get_user_userid(g_bots[0]));
-		g_bots[0] = -1;
-		g_botnum--;
 	}
 	if(g_bots[1] && is_user_connected(g_bots[1]))
 	{
 		server_print("[CSDMsake - RoundEndBlocker] Kicking bot!");
 		server_cmd("kick #%d", get_user_userid(g_bots[1]));
-		g_bots[1] = -1;
-		g_botnum--;
 	}
 }
 
@@ -258,11 +265,16 @@ public kickBots()
 */
 public createBot()
 {
+	if(g_failCount > 4)
+	{
+		server_print("%s RoundEndBlocker bot creation failed 4 times in a row. No more bots will be created for this map", PLUGIN_ROUNDENDBLOCKER);
+		return;
+	}
 	new bot;
 	bot = engfunc(EngFunc_CreateFakeClient, g_names[g_botnum]);
 	if(!bot) 
 	{
-		server_print("[CSDMsake - RoundEndblocker] Error!");
+		server_print("%s Error!", PLUGIN_ROUNDENDBLOCKER);
 		g_failCount++;
 		if(g_failCount > 4)
 		{
@@ -275,7 +287,7 @@ public createBot()
 	dllfunc(DLLFunc_ClientConnect, bot, g_names[g_botnum], "127.0.0.1", ptr);
 	if(!is_user_connected(bot)) 
 	{
-		server_print("[CSDMsake - RoundEndblocker] Error: %s", ptr);
+		server_print("%s Error: %s", PLUGIN_ROUNDENDBLOCKER, ptr);
 		return;
 	}
 	dllfunc(DLLFunc_ClientPutInServer, bot);
@@ -283,7 +295,7 @@ public createBot()
 	set_pev(bot, pev_flags, pev(bot, pev_flags) | FL_FAKECLIENT);
 	set_pev(bot, pev_flags, pev(bot, pev_flags) | FL_CUSTOMENTITY);
 	cs_set_user_team(bot, g_botnum % 2 ? CS_TEAM_T : CS_TEAM_CT);
-	server_print("[CSDMsake - RoundEndblocker] ^"%s^" has been created.", g_names[g_botnum]);
+	server_print("%s ^"%s^" has been created.", PLUGIN_ROUNDENDBLOCKER, g_names[g_botnum]);
 	g_bots[g_botnum++] = bot;
 	g_failCount = 0;
 }

@@ -18,11 +18,7 @@
  
 #define	MAX_SPAWNS	60
 #define GUNPICKUP_SOUND "items/gunpickup2.wav"
-#define SND_CHANNEL 3
-#define SND_VOLUME 1.0
-#define SND_ATTENUATION 0.8
 #define SND_FLAG (1<<32)
-#define SND_PITCH 100
 
 //Tampering with the author and name lines will violate copyrights
 #define PLUGINNAME "CSDM Mod | csdmsake_spawn"
@@ -67,7 +63,7 @@ public playerSpawned(id)
 	}
 	spawn_Preset(id,1);
 	//Play spawnsound.
-	engfunc(EngFunc_EmitSound, id, SND_CHANNEL, GUNPICKUP_SOUND, SND_VOLUME, SND_ATTENUATION, SND_FLAG, SND_PITCH);
+	engfunc(EngFunc_EmitSound, id, CHAN_ITEM, GUNPICKUP_SOUND, VOL_NORM, ATTN_NORM, SND_FLAG, PITCH_NORM);
 }
 
 public fm_emitSound(ent, iChannel, const szSample[], Float:fVolume, Float:fAttenuation, iFlags, iPitch)
