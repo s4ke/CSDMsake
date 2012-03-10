@@ -22,7 +22,7 @@
 
 //Tampering with the author and name lines will violate copyrights
 #define PLUGINNAME "CSDM Mod | csdmsake_spawn"
-#define VERSION "2.00 | 1.1d"
+#define VERSION "2.00 | 1.1e"
 #define AUTHORS "CSDM Team | sake"
 
 #include <amxmodx>
@@ -56,8 +56,8 @@ registerForwards()
 
 public playerSpawned(id)
 {
-	//don't do anything if it is one of the roundendblockers who has been spawned
-	if(pev(id, pev_flags) == FL_CUSTOMENTITY)
+	//don't do anything if it is one of the roundendblockers who has been spawned or the user is not alive (spectator?)
+	if(pev(id, pev_flags) == FL_CUSTOMENTITY || !is_user_alive(id))
 	{
 		return;
 	}
@@ -128,7 +128,6 @@ readSpawns()
 	
 	return 1;
 }
-
 
 public spawn_Preset(id, num)
 {

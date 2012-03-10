@@ -10,7 +10,7 @@
 
 #define PLUGIN	"csdmsake_display"
 #define AUTHOR	"sake"
-#define VERSION	"1.1"
+#define VERSION	"1.1e"
 #define taskID 23112
 #define HIDE (1<<4) | (1<<5)
 

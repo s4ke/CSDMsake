@@ -18,19 +18,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <amxmisc>
 #include <cstrike>
-#include <fakemeta_util>
+#include <fakemeta>
 #include <hamsandwich>
 #include <fun>
 
 #define PLUGIN	"csdmsake_equip"
 #define AUTHOR	"sake"
-#define VERSION	"1.1d"
-#define PLUGIN_IDENTIFIER "[CSDMsake]" 
+#define VERSION	"1.1e"
 
 #define PRIMARY_WEAPON_COUNT 16
 #define SECONDARY_WEAPON_COUNT 6
 #define TOTAL_WEAPON_COUNT 22
 #define DEFAULT_WEAPONS "4194303"
+
+//String constants that are used more than once
+new const PLUGIN_IDENTIFIER[] = "[CSDMsake]";
+new const WPN_KNIFE[] = "weapon_knife";
 
 enum Weapon
 {
@@ -59,7 +62,7 @@ enum Weapon
 	NOWEAPON
 }
 
-new const g_weapon_name[Weapon][] =
+new const WEAPON_NAME[Weapon][] =
 {
 	"weapon_m4a1",
 	"weapon_ak47",
@@ -86,7 +89,7 @@ new const g_weapon_name[Weapon][] =
 	""
 };
 
-new const g_weapon_display_name[Weapon][] = 
+new const WEAPON_DISPLAY_NAME[Weapon][] = 
 {
 	"M4A1",
 	"AK-47",
@@ -113,7 +116,7 @@ new const g_weapon_display_name[Weapon][] =
 	""
 };
 
-new const g_weapon_ammo[Weapon][] =
+new const WEAPON_AMMO[Weapon][] =
 {
 	"556nato",
 	"762nato",
@@ -200,6 +203,7 @@ initMenus()
 	menu_additem(g_menu_main,"Last Weapons");
 	menu_additem(g_menu_main,"Remember Weapons");	
 	menu_setprop(g_menu_main, MPROP_EXIT, MEXIT_NEVER);
+	
 	new callback_prim = menu_makecallback("primaryMenuCallback");
 	new callback_sec  = menu_makecallback("secondaryMenuCallback");
 	
@@ -208,7 +212,7 @@ initMenus()
 	g_menu_prim = menu_create("Primary Weapons","primaryWeaponPicked");
 	do
 	{
-		menu_additem(g_menu_prim,g_weapon_display_name[Weapon:i], "", 0, callback_prim);
+		menu_additem(g_menu_prim,WEAPON_DISPLAY_NAME[Weapon:i], "", 0, callback_prim);
 		if(!(g_weapons & (1<<i)))
 		{
 			++g_banned_count_prim;
@@ -221,7 +225,7 @@ initMenus()
 	}
 	else
 	{
-		menu_destroy(g_menu_sec);
+		menu_destroy(g_menu_prim);
 	}
 	
 	//SecondaryWeapon Menu Initialization
@@ -230,7 +234,7 @@ initMenus()
 	g_menu_sec = menu_create("Secondary Weapons","secondaryWeaponPicked");
 	do
 	{
-		menu_additem(g_menu_sec,g_weapon_display_name[Weapon:i], "", 0, callback_sec);
+		menu_additem(g_menu_sec,WEAPON_DISPLAY_NAME[Weapon:i], "", 0, callback_sec);
 		if(!(g_weapons & (1<<i)))
 		{
 			++g_banned_count_sec;
@@ -240,9 +244,11 @@ initMenus()
 	if(g_banned_count_sec < TOTAL_WEAPON_COUNT)
 	{
 		menu_setprop(g_menu_sec, MPROP_EXIT, MEXIT_ALL);
-		return;
 	}
-	menu_destroy(g_menu_sec);
+	else
+	{
+		menu_destroy(g_menu_sec);
+	}
 }
 
 registerSayCommands()
@@ -283,26 +289,23 @@ public blockCmd(id)
 public playerSpawned(id)
 {
 	//don't do anything if it is one of the roundendblockers who has been spawned
-	if(pev(id, pev_flags) == FL_CUSTOMENTITY)
-	{
-		return;
-	}
-	if(is_user_alive(id) && id <= 32)
+	if(pev(id, pev_flags) != FL_CUSTOMENTITY && is_user_alive(id))
 	{
 		g_hasWeapons[id-1] = false;
 		if(!is_user_bot(id) && !g_remember[id-1])
 		{
-			new menu,keys;
-			get_user_menu(id,menu,keys);
+			strip_user_weapons(id);
+			give_item(id, WPN_KNIFE);
+			new menu,menu2;
+			player_menu_info(id, menu, menu2);
 			//only show the menu if no other is being displayed
 			if(menu == 0)
 			{
-				//show the Menu for the Weapons
 				menu_display(id,g_menu_main,0);
 			}
-			else if(!(menu == g_menu_main || menu == g_menu_prim || g_menu_sec))
+			else if(menu &&  !(menu2 == g_menu_main || menu2 == g_menu_prim || menu2 == g_menu_sec))
 			{
-				client_print(id,print_chat,"%s Another menu is being displayed, say /guns again after the menu has closed!", PLUGIN_IDENTIFIER);	
+				client_print(id,print_chat,"%s Another menu is being displayed, say /guns again after the menu has closed!", PLUGIN_IDENTIFIER,menu, g_menu_main, g_menu_prim, g_menu_sec);	
 			}
 		}
 		else
@@ -310,7 +313,7 @@ public playerSpawned(id)
 			//Bots get standard Weapons, and if g_remember == true players get the last weapons they selected
 			giveWeapons(id);
 		}
-	}	
+	}
 }
 
 /////////////////////////////////////Menu Handles//////////////////////////////////////
@@ -329,38 +332,45 @@ public mainMenuHandle(id, menu ,item)
 				if(g_banned_count_sec < SECONDARY_WEAPON_COUNT)
 				{
 					menu_display(id, g_menu_sec, 0);
-					return PLUGIN_HANDLED;
 				}
-				client_print(id, print_chat,"%s No Weapons available!", PLUGIN_IDENTIFIER);
-				g_remember[id-1] = true;
-				return PLUGIN_HANDLED;
+				else
+				{
+					client_print(id, print_chat,"%s No Weapons available!", PLUGIN_IDENTIFIER);
+					g_remember[id-1] = true;
+				}
 			}
-			menu_display(id,g_menu_prim,0);
+			else
+			{
+				menu_display(id,g_menu_prim,0);
+			}
 		}
 		case 1:
 		{
-			if(g_primary[id-1] == NOWEAPON && g_secondary[id-1] == NOWEAPON)
+			if(g_primary[id-1] != NOWEAPON || g_secondary[id-1] != NOWEAPON)
+			{
+				giveWeapons(id);
+			}
+			else
 			{
 				client_print(id, print_chat,"%s No Weapons to reuse!", PLUGIN_IDENTIFIER);
 				menu_display(id,g_menu_main,0);
-				return PLUGIN_HANDLED;
 			}
-			giveWeapons(id);
 		}
 		case 2:
 		{
-			if(g_primary[id-1] == NOWEAPON && g_secondary[id-1] == NOWEAPON)
+			if(g_primary[id-1] != NOWEAPON || g_secondary[id-1] != NOWEAPON)
+			{
+				g_remember[id-1] = true;
+				giveWeapons(id);
+				client_print(id,print_chat,"%s To re-enable the menu say /guns", PLUGIN_IDENTIFIER);
+			}
+			else
 			{
 				client_print(id, print_chat,"%s No Weapons to remember!", PLUGIN_IDENTIFIER);
 				menu_display(id,g_menu_main,0);
-				return PLUGIN_HANDLED;
 			}
-			g_remember[id-1] = true;
-			giveWeapons(id);
-			client_print(id,print_chat,"%s To re-enable the menu say /guns", PLUGIN_IDENTIFIER);
 		}
 	}
-	return PLUGIN_HANDLED;
 }
 
 /*
@@ -368,20 +378,23 @@ public mainMenuHandle(id, menu ,item)
 */
 public primaryWeaponPicked(id, menu, item)
 {
-	if(item == MENU_EXIT)
+	if(item != MENU_EXIT)
+	{
+		g_primary[id-1] = Weapon:item
+		//display the secondary weapons menu if possible
+		if(g_banned_count_sec < SECONDARY_WEAPON_COUNT)
+		{
+			menu_display(id, g_menu_sec, 0);
+		}
+		else
+		{
+			giveWeapons(id);
+		}
+	}
+	else
 	{
 		menu_display(id,g_menu_main,0);
-		return PLUGIN_HANDLED;
 	}
-	g_primary[id-1] = Weapon:item
-	//display the secondary weapons menu if possible
-	if(g_banned_count_sec < SECONDARY_WEAPON_COUNT)
-	{
-		menu_display(id, g_menu_sec, 0);
-		return PLUGIN_HANDLED;
-	}
-	giveWeapons(id);
-	return PLUGIN_HANDLED;
 }
 
 public primaryMenuCallback(id, menu, item)
@@ -394,14 +407,15 @@ public primaryMenuCallback(id, menu, item)
 */
 public secondaryWeaponPicked(id, menu, item)
 {
-	if(item == MENU_EXIT)
+	if(item != MENU_EXIT)
+	{
+		g_secondary[id-1] = Weapon:(item + PRIMARY_WEAPON_COUNT);
+		giveWeapons(id);
+	}
+	else
 	{
 		menu_display(id,g_menu_main,0);
-		return PLUGIN_HANDLED;
 	}
-	g_secondary[id-1] = Weapon:(item + PRIMARY_WEAPON_COUNT);
-	giveWeapons(id);
-	return PLUGIN_HANDLED;
 }
 
 public secondaryMenuCallback(id, menu, item)
@@ -418,15 +432,16 @@ public reenableMenu(id)
 	if(g_hasWeapons[id-1])
 	{
 		client_print(id,print_chat,"%s Weapon menu re-enabled on next respawn!", PLUGIN_IDENTIFIER);
-		return PLUGIN_CONTINUE;
 	}
-	new menu, keys;
-	get_user_menu(id,menu,keys);
-	if(menu == 0)
+	else
 	{
-		menu_display(id,g_menu_main,0);
+		new menu, keys;
+		get_user_menu(id,menu,keys);
+		if(menu == 0)
+		{
+			menu_display(id,g_menu_main,0);
+		}
 	}
-	return PLUGIN_CONTINUE;
 }
 
 /////////////////////////////////////Respawning, giving Weapons, Teams, etc.//////////////////////////////////////
@@ -444,17 +459,17 @@ public giveWeapons(id)
 		//give the user the primary weapon he has chosen
 		if(isValidWeapon(g_primary[id-1]))
 		{
-			fm_give_item(id,g_weapon_name[g_primary[id-1]]);
+			give_item(id,WEAPON_NAME[g_primary[id-1]]);
 		}
 		
 		//give the user the secondary weapon he has chosen
 		if(isValidWeapon(g_secondary[id-1]))
 		{
-			fm_give_item(id,g_weapon_name[g_secondary[id-1]]);
+			give_item(id,WEAPON_NAME[g_secondary[id-1]]);
 		}
 		
 		//give the user his knife back
-		fm_give_item(id,"weapon_knife");	
+		give_item(id,WPN_KNIFE);	
 		
 		giveAmmo(id);
 		g_hasWeapons[id-1] = true;
@@ -468,11 +483,11 @@ public giveAmmo(id)
 {
 	if(isValidWeapon(g_primary[id-1]))
 	{
-		ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo[g_primary[id-1]],200);
+		ExecuteHamB(Ham_GiveAmmo, id, 200,WEAPON_AMMO[g_primary[id-1]],200);
 	}
 	if(isValidWeapon(g_secondary[id-1]))
 	{
-		ExecuteHamB(Ham_GiveAmmo, id, 200,g_weapon_ammo[g_secondary[id-1]],200);
+		ExecuteHamB(Ham_GiveAmmo, id, 200,WEAPON_AMMO[g_secondary[id-1]],200);
 	}
 }
 
